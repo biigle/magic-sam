@@ -21,8 +21,8 @@
     "resolve-url-loader": "^5.0.0",
     "sass": "^1.15.2",
     "sass-loader": "^8.0.0",
-    "vue-loader": "^15.9.6",
-    "vue-template-compiler": "^2.6.11"
+    "vue-loader": "^17.4.2",
+    "vue-template-compiler": "^2.7.16"
   },
   "dependencies": {
     "@biigle/ol": "^9.2.4",
