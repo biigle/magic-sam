@@ -1,6 +1,6 @@
 <?php
 
-namespace Biigle\Tests\MagicSams\MagicSam;
+namespace Biigle\Tests\Modules\MagicSam;
 
 use Biigle\Modules\MagicSam\MagicSamServiceProvider;
 use TestCase;
