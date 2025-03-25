@@ -1,12 +1,12 @@
 <script>
-import ImageEmbeddingApi from './api/image';
-import MagicSamInteraction from './ol/MagicSamInteraction';
-import {Echo} from './import';
-import {handleErrorResponse} from './import';
-import {Keyboard} from './import';
-import {Messages} from './import';
-import {Styles} from './import';
-import {Events} from './import';
+import ImageEmbeddingApi from './api/image.js';
+import MagicSamInteraction from './ol/MagicSamInteraction.js';
+import {Echo} from './import.js';
+import {handleErrorResponse} from './import.js';
+import {Keyboard} from './import.js';
+import {Messages} from './import.js';
+import {Styles} from './import.js';
+import {Events} from './import.js';
 
 let magicSamInteraction;
 let loadedImageId;

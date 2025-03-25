@@ -1,5 +1,5 @@
 <script>
-import {Events} from '../import';
+import {Events} from '../import.js';
 /**
  * The plugin component to edit the Magic-SAM throttle interval.
  *

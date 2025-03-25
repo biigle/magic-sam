@@ -46,7 +46,7 @@ class MagicSamServiceProvider extends ServiceProvider
         ]);
 
         $this->publishes([
-            __DIR__.'/public/assets' => public_path('vendor/magic-sam'),
+            __DIR__.'/public' => public_path('vendor/magic-sam'),
         ], 'public');
 
         if ($this->app->runningInConsole()) {
