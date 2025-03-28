@@ -18,7 +18,7 @@
 @push('scripts')
     {{vite_hot(base_path('vendor/biigle/magic-sam/hot'), ['src/resources/assets/js/main.js'], 'vendor/magic-sam')}}
 <script type="module">
-    biigle.$declare('magic-sam.onnx-url', '{{cachebust_asset('vendor/magic-sam/'.config('magic_sam.onnx_file'))}}');
+    biigle.$declare('magic-sam.onnx-url', '{{cachebust_asset('vendor/magic-sam/assets/'.config('magic_sam.onnx_file'))}}');
 </script>
 @endpush
 
