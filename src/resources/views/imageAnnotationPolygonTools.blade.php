@@ -1,5 +1,19 @@
-<control-button v-if="image?.tiled" icon="fa-hat-wizard" title="The magic SAM tool is not available for very large images" :disabled="true"></control-button>
-<control-button v-else v-cloak icon="fa-hat-wizard" :title="magicSamButtonTitle" :active="isMagicSamming" :loading="loadingMagicSam" :class="magicSamButtonClass" v-on:click="toggleMagicSam"></control-button>
+<control-button
+    v-if="image?.tiled"
+    icon="fa-hat-wizard"
+    title="The magic SAM tool is not available for very large images"
+    :disabled="true"
+    ></control-button>
+<control-button
+    v-else
+    icon="fa-hat-wizard"
+    :title="magicSamButtonTitle"
+    :active="isMagicSamming"
+    :loading="loadingMagicSam"
+    :class="magicSamButtonClass"
+    v-on:click="toggleMagicSam"
+    v-on:active="onActive"
+    ></control-button>
 
 @push('scripts')
     {{vite_hot(base_path('vendor/biigle/magic-sam/hot'), ['src/resources/assets/js/main.js'], 'vendor/magic-sam')}}

@@ -178,7 +178,7 @@ export default {
         },
     },
     created() {
-        Events.$on('settings.samThrottleInterval', this.setThrottleInterval);
+        Events.on('settings.samThrottleInterval', this.setThrottleInterval);
         Echo.getInstance().private(`user-${this.userId}`)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingAvailable', this.handleSamEmbeddingAvailable)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingFailed', this.handleSamEmbeddingFailed);
