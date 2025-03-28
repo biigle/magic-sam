@@ -14,6 +14,14 @@ export default defineConfig({
                     src: 'node_modules/onnxruntime-web/dist/*.wasm',
                     dest: 'assets',
                 },
+                {
+                    src: 'src/resources/assets/images/*',
+                    dest: 'assets',
+                },
+                {
+                    src: 'src/resources/assets/models/*',
+                    dest: 'assets',
+                },
             ],
         }),
         laravel({
