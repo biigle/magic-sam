@@ -57,6 +57,10 @@ class Sam():
     def generate_embedding(self, out_path, img_path, thread):
         transform = ResizeLongestSide(self.sam.image_encoder.img_size)
         thread.join()
+
+        if (not os.path.exists(img_path)):
+            raise Exception("'{f}' does not exist".format(f=img_path))
+
         image = Image.open(img_path)
         if image.mode in ['RGBA', 'L', 'P', 'CMYK']:
             image = image.convert('RGB')

@@ -4,6 +4,7 @@ import queue
 import base64
 import os
 import tempfile
+import time
 
 request_queue = queue.Queue()
 finished_tasks = dict()
@@ -24,7 +25,6 @@ def saveImageAsFile(content, path):
         f.write(content)
         f.close()
     except Exception as e:
-        # somehow exit request
         logging.error(e)
 
 
