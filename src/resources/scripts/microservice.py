@@ -9,12 +9,14 @@ request_queue = queue.Queue()
 finished_tasks = dict()
 threadCondition = threading.Condition()
 
+
 class GenerateEmbeddingRequest():
 
     def __init__(self, out_path, img_path, t):
         self.out_path = out_path
         self.image_path = img_path
         self.thread = t
+
 
 def saveImageAsFile(content, path):
     try:
@@ -25,6 +27,7 @@ def saveImageAsFile(content, path):
         # somehow exit request
         logging.error(e)
 
+
 def process_requests(sam):
     while True:
         req = request_queue.get(block=True)
@@ -34,7 +37,8 @@ def process_requests(sam):
                 finished_tasks[req.out_path] = True
                 threadCondition.notify_all()
         except Exception as e:
-            logging.error("Failed to generate embedding for '{f}' due to:\n\t{e}".format(f=req.out_path,e=e))
+            logging.error("Failed to generate embedding for '{f}' due to:\n\t{e}".format(
+                f=req.out_path, e=e))
             with threadCondition:
                 finished_tasks[req.out_path] = False
                 threadCondition.notify_all()
@@ -43,8 +47,10 @@ def process_requests(sam):
 def generate_response(image, out_path):
 
     # save image temporarely to reduce memory usage during waiting
-    path = "{d}/{i}.binary".format(d=tempfile.gettempdir(), i=os.path.splitext(os.path.basename(out_path))[0])
-    t = threading.Thread(target=saveImageAsFile, daemon=True, args=[image, path])
+    path = "{d}/{i}.binary".format(d=tempfile.gettempdir(),
+                                   i=os.path.splitext(os.path.basename(out_path))[0])
+    t = threading.Thread(target=saveImageAsFile,
+                         daemon=True, args=[image, path])
     t.start()
     del image
 
@@ -63,7 +69,7 @@ def generate_response(image, out_path):
             embedding = open(out_path, 'rb').read()
             data = base64.b64encode(embedding)
             data = data.decode('utf-8')
-            
+
             # remove embedding file
             if os.path.exists(out_path):
                 os.remove(out_path)
