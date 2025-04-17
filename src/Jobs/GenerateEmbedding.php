@@ -2,17 +2,18 @@
 
 namespace Biigle\Modules\MagicSam\Jobs;
 
-use Biigle\Image;
-use Biigle\Modules\MagicSam\Events\EmbeddingAvailable;
-use Biigle\Modules\MagicSam\Events\EmbeddingFailed;
-use Biigle\User;
 use Exception;
 use FileCache;
+use Biigle\User;
+use Biigle\Image;
 use Illuminate\Bus\Queueable;
-use Illuminate\Http\File as HttpFile;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use Biigle\Modules\MagicSam\Events\EmbeddingFailed;
+use Biigle\Modules\MagicSam\Events\EmbeddingAvailable;
 
 class GenerateEmbedding
 {
@@ -33,6 +34,13 @@ class GenerateEmbedding
     public $user;
 
     /**
+     * Job can either be executed synchronously or asynchronously
+     * 
+     * @var bool
+     */
+    public $isAsync;
+
+    /**
      * Ignore this job if the image or user does not exist any more.
      *
      * @var bool
@@ -45,36 +53,63 @@ class GenerateEmbedding
      * @param Image $image
      * @param User $user
      */
-    public function __construct(Image $image, User $user)
+    public function __construct(Image $image, User $user, bool $isAsync = True)
     {
         $this->image = $image;
         $this->user = $user;
+        $this->isAsync = $isAsync;
     }
 
     /**
-      * Handle the job.
-      *
-      * @return void
-      */
+     * Handle the job.
+     *
+     * @return void
+     */
     public function handle()
     {
+        if ($this->isAsync) {
+            Cache::increment(config('magic_sam.job_count_cache_key'));
+        }
+
         $filename = "{$this->image->id}.npy";
-        $outputPath = sys_get_temp_dir()."/{$filename}";
+        $outputPath = sys_get_temp_dir() . "/{$filename}";
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
         try {
-            if (!$disk->exists($filename)) {
-                try {
-                    $this->generateEmbedding($outputPath);
-                    $disk->putFileAs('', new HttpFile($outputPath), $filename);
-                } finally {
-                    File::delete($outputPath);
-                }
+            // Check whether file exists again, because job can be executed in app or pyworker container
+            if ($disk->exists($filename) && $this->isAsync) {
+                $this->decrementJobCacheCount();
+                EmbeddingAvailable::dispatch($filename, $this->user);
+                return;
             }
 
-            EmbeddingAvailable::dispatch($filename, $this->user);
+            $embedding = $this->generateEmbedding($outputPath);
+            $disk->put($filename, $embedding);
+
+            if ($this->isAsync) {
+                $this->decrementJobCacheCount();
+                EmbeddingAvailable::dispatch($filename, $this->user);
+            }
         } catch (Exception $e) {
-            EmbeddingFailed::dispatch($this->user);
+            if ($this->isAsync) {
+                $this->decrementJobCacheCount();
+                EmbeddingFailed::dispatch($this->user);
+            }
             throw $e;
+        }
+    }
+
+    /**
+     * Decrement job count in cache
+     * 
+     * @return void
+     */
+    protected function decrementJobCacheCount()
+    {
+        $job_count = config('magic_sam.job_count_cache_key');
+        if (Cache::get($job_count) > 0) {
+            Cache::decrement($job_count);
+        } else {
+            Cache::put($job_count, 0);
         }
     }
 
@@ -82,59 +117,23 @@ class GenerateEmbedding
      * Generate the embedding.
      *
      * @param string $outputPath
+     * 
+     * @return string embedding as binary
      */
     protected function generateEmbedding($outputPath)
     {
-        FileCache::getOnce($this->image, function ($file, $path) use ($outputPath) {
-            $checkpointUrl = config('magic_sam.model_url');
-            $checkpointPath = config('magic_sam.model_path');
-            $this->maybeDownloadCheckpoint($checkpointUrl, $checkpointPath);
-            $modelType = config('magic_sam.model_type');
-            $device = config('magic_sam.device');
-            $script = config('magic_sam.compute_embedding_script');
+        return FileCache::getOnce($this->image, function ($file, $path) use ($outputPath) {
+            // Contact the pyworker to generate the embedding
+            $response = Http::post('http://pyworker:8080/embedding', [
+                'image' => base64_encode(File::get($path)),
+                'out_path' => $outputPath,
+            ]);
 
-            $this->python("{$script} '{$checkpointPath}' '{$modelType}' '{$device}' '{$path}' '{$outputPath}'");
+            if (!$response->ok()) {
+                throw new Exception("Couldn't process image for Magic-Sam tool. Please try again.");
+            }
+            $embedding = $response->json()['data'];
+            return base64_decode($embedding);
         });
-    }
-
-    /**
-     * Downloads the model checkpoint if they weren't downloaded yet.
-     *
-     * @param string $from
-     * @param string $to
-     */
-    protected function maybeDownloadCheckpoint($from, $to)
-    {
-        if (!File::exists($to)) {
-            if (!File::exists(dirname($to))) {
-                File::makeDirectory(dirname($to), 0700, true, true);
-            }
-            $success = @copy($from, $to);
-
-            if (!$success) {
-                throw new Exception("Failed to download checkpoint from '{$from}'.");
-            }
-        }
-    }
-
-    /**
-     * Execute a Python command.
-     *
-     * @param string $command
-     * @throws Exception On a non-zero exit code.
-     *
-     * @return string
-     */
-    protected function python($command)
-    {
-        $code = 0;
-        $lines = [];
-        $python = config('magic_sam.python');
-        exec("{$python} -u {$command} 2>&1", $lines, $code);
-
-        if ($code !== 0) {
-            $lines = implode("\n", $lines);
-            throw new Exception("Error while executing python command '{$command}':\n{$lines}", $code);
-        }
     }
 }
