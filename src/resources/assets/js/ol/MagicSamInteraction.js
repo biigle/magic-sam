@@ -93,7 +93,7 @@ class MagicSamInteraction extends PointerInteraction {
         return this.throttleInterval;
     }
 
-    updateEmbedding(image, url) {
+    updateEmbedding(image, url, embedding) {
         this.imageSizeTensor = new Tensor("float32", [image.height, image.width]);
         this.imageSamScale = LONG_SIDE_LENGTH / Math.max(image.height, image.width);
         this.samSizeTensor = new Tensor("float32", [
@@ -105,11 +105,22 @@ class MagicSamInteraction extends PointerInteraction {
 
         // Maybe the model is not initialized at this point so we have to wait for that,
         // too.
-        return Vue.Promise.all([npy.load(url), this.initPromise])
-            .then(([npArray, ]) => {
-                this.embedding = new Tensor("float32", npArray.data, npArray.shape);
-                this._runModelWarmup();
-            });
+        let promise = null;
+        if (embedding) {
+            promise = Vue.Promise.all([this.initPromise])
+                .then(() => {
+                    let npArray = npy.parse(embedding);
+                    this.embedding = new Tensor("float32", npArray.data, npArray.shape);
+                    this._runModelWarmup();
+                });
+        } else {
+             promise = Vue.Promise.all([npy.load(url), this.initPromise])
+                .then(([npArray,]) => {
+                    this.embedding = new Tensor("float32", npArray.data, npArray.shape);
+                    this._runModelWarmup();
+                });
+        }
+        return promise;
     }
 
     handleUpEvent() {
