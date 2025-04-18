@@ -60,7 +60,7 @@ except Exception as e:
 
 @app.route("/embedding", methods=['POST'])
 def index():
-    args = request.get_json()
-    image = base64.b64decode(args['image'])
-    out_path = args['out_path']
+    # files >500KB are saved in tmp file and are not read in memory
+    image = request.files["image"] # tmp file reader
+    out_path = request.form['out_path']
     return generate_response(image, out_path)

@@ -13,26 +13,15 @@ threadCondition = threading.Condition()
 
 class GenerateEmbeddingRequest():
 
-    def __init__(self, out_path, img_path, t):
+    def __init__(self, out_path, image):
         self.out_path = out_path
-        self.image_path = img_path
-        self.thread = t
-
-
-def saveImageAsFile(content, path):
-    try:
-        f = open(path, 'wb')
-        f.write(content)
-        f.close()
-    except Exception as e:
-        logging.error(e)
-
+        self.image = image
 
 def process_requests(sam):
     while True:
         req = request_queue.get(block=True)
         try:
-            sam.generate_embedding(req.out_path, req.image_path, req.thread)
+            sam.generate_embedding(req.out_path, req.image)
             with threadCondition:
                 finished_tasks[req.out_path] = True
                 threadCondition.notify_all()
@@ -45,16 +34,7 @@ def process_requests(sam):
 
 
 def generate_response(image, out_path):
-
-    # save image temporarely to reduce memory usage during waiting
-    path = "{d}/{i}.binary".format(d=tempfile.gettempdir(),
-                                   i=os.path.splitext(os.path.basename(out_path))[0])
-    t = threading.Thread(target=saveImageAsFile,
-                         daemon=True, args=[image, path])
-    t.start()
-    del image
-
-    ge_request = GenerateEmbeddingRequest(out_path, path, t)
+    ge_request = GenerateEmbeddingRequest(out_path, image)
     request_queue.put_nowait(ge_request)
     with threadCondition:
         # wait until result or error was saved
@@ -73,8 +53,7 @@ def generate_response(image, out_path):
             # remove embedding file
             if os.path.exists(out_path):
                 os.remove(out_path)
-            if os.path.exists(path):
-                os.remove(path)
+
             return {'data': data}
         else:
             # remove request identifier (out_path) from dict
@@ -83,7 +62,5 @@ def generate_response(image, out_path):
             # remove embedding file if it exists
             if os.path.exists(out_path):
                 os.remove(out_path)
-            if os.path.exists(path):
-                os.remove(path)
 
-        return {'data': {}}
+            return "Couldn't generate embedding", 400 #TODO überarbeitn

@@ -54,14 +54,10 @@ class Sam():
         self.sam = sam_model_registry[model_type](checkpoint=checkpoint_path)
         self.sam.to(device=device)  # does it take long?
 
-    def generate_embedding(self, out_path, img_path, thread):
+    def generate_embedding(self, out_path, image):
         transform = ResizeLongestSide(self.sam.image_encoder.img_size)
-        thread.join()
 
-        if (not os.path.exists(img_path)):
-            raise Exception("'{f}' does not exist".format(f=img_path))
-
-        image = Image.open(img_path)
+        image = Image.open(image.stream)
         if image.mode in ['RGBA', 'L', 'P', 'CMYK']:
             image = image.convert('RGB')
         elif image.mode in ['I', 'I;16']:
