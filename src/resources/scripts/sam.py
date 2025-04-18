@@ -5,9 +5,7 @@ import numpy as np
 import torch
 import os
 import requests
-from shutil import copyfileobj
 import time
-
 
 def wait_on_checkpoint_download(path, size, total_size, timeout):
     elapsed_time = 0
@@ -29,7 +27,7 @@ def wait_on_checkpoint_download(path, size, total_size, timeout):
     return
 
 
-def download_checkpoint(url, path, timeout=60):
+def download_checkpoint(url, path, timeout=60, chunk_size_kb=1024):
     if os.path.exists(path):
         # check if checkpoint download is complete
         total_size = int(requests.head(url).headers['Content-Length'])
@@ -39,12 +37,20 @@ def download_checkpoint(url, path, timeout=60):
         return
 
     dir, _ = os.path.split(path)
+    chunk_size = chunk_size_kb * 1024  # 1MB
     if not os.path.exists(dir):
         os.mkdir(dir)
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         with open(path, 'wb') as f:
-            copyfileobj(r.raw, f)
+            # copied from shutil.copyfileobj
+            fsrc_read = r.raw.read
+            fdst_write = f.write
+            while True:
+                buf = fsrc_read(chunk_size)
+                if not buf:
+                    break
+                fdst_write(buf)
 
 
 class Sam():
@@ -52,7 +58,7 @@ class Sam():
         download_checkpoint(checkpoint_url, checkpoint_path)
         self.device = device
         self.sam = sam_model_registry[model_type](checkpoint=checkpoint_path)
-        self.sam.to(device=device)  # does it take long?
+        self.sam.to(device=device)
 
     def generate_embedding(self, out_path, image):
         transform = ResizeLongestSide(self.sam.image_encoder.img_size)
