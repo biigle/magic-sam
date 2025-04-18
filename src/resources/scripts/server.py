@@ -1,10 +1,10 @@
 from flask import Flask, request
 import logging
-import threading
 import os
 from sam import Sam
+import threading
 from microservice import process_requests, generate_response
-import sys
+from process_request_thread import ProcessRequestThread
 
 MAGIC_SAM_MODEL_URL = 'MAGIC_SAM_MODEL_URL'
 MAGIC_SAM_CHECKPOINT_PATH = 'MAGIC_SAM_CHECKPOINT_PATH'
@@ -15,6 +15,23 @@ url = os.environ.get(MAGIC_SAM_MODEL_URL)
 path = os.environ.get(MAGIC_SAM_CHECKPOINT_PATH)
 model_type = os.environ.get(MAGIC_SAM_MODEL_TYPE)
 device = os.environ.get(MAGIC_SAM_DEVICE)
+
+
+def log_and_exit(e):
+    logging.error(e)
+    # terminate all threads and worker
+    os._exit(4)
+
+
+def excepthook(args):
+    log_and_exit(args.exc_value)
+
+
+def start_request_processing():
+    # override excepthook because server should be stopped
+    # if process_request thread cannot be restarted
+    threading.excepthook = excepthook
+    ProcessRequestThread(sam, process_requests).start()
 
 
 def is_checkpoint_path():
@@ -33,16 +50,15 @@ def check_sam_arguments():
 try:
     check_sam_arguments()
     sam = Sam(url, path, model_type, device)
-    threading.Thread(target=process_requests, daemon=True, args=[sam]).start()
+    start_request_processing()
     app = Flask(__name__)
 except Exception as e:
-    logging.error(e)
-    sys.exit(4)
+    log_and_exit(e)
 
 
 @app.route("/embedding", methods=['POST'])
 def index():
     # files >500KB are saved in a tmp file and are not stored in memory
-    image = request.files["image"] # tmp file reader
+    image = request.files["image"]  # tmp file reader
     out_path = request.form['out_path']
     return generate_response(image, out_path)
