@@ -35,13 +35,39 @@ class GenerateEmbeddingTest extends TestCase
             File::delete($outputFile);
         }
 
-        $this->assertTrue($job->pythonCalled);
         Event::assertDispatched(function (EmbeddingAvailable $event) use ($user, $image) {
             $this->assertEquals($user->id, $event->user->id);
             $this->assertEquals("{$image->id}.npy", $event->filename);
 
             return true;
         });
+    }
+
+    public function testHandleSync()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+        $filename = "{$image->id}.npy";
+        $outputFile = sys_get_temp_dir()."/{$filename}";
+        $job = new GenerateEmbeddingStub($image, $user, False);
+
+        try {
+            File::put($outputFile, 'abc');
+            $job->handle();
+            $disk->assertExists("{$image->id}.npy");
+        } finally {
+            File::delete($outputFile);
+        }
+
+        Event::assertNotDispatched(EmbeddingAvailable::class);
+        Event::assertNotDispatched(EmbeddingFailed::class);
+        $this->assertTrue($disk->exists($filename));
+        $this->assertGreaterThan(0, $disk->size($filename));
     }
 
     public function testHandleExists()
@@ -57,7 +83,6 @@ class GenerateEmbeddingTest extends TestCase
         $job = new GenerateEmbeddingStub($image, $user);
 
         $job->handle();
-        $this->assertFalse($job->pythonCalled);
 
         Event::assertDispatched(function (EmbeddingAvailable $event) use ($user, $image) {
             $this->assertEquals($user->id, $event->user->id);
@@ -96,19 +121,15 @@ class GenerateEmbeddingTest extends TestCase
 
 class GenerateEmbeddingStub extends GenerateEmbedding
 {
-    public $pythonCalled = false;
+
     public $throw = false;
 
-    protected function python($command)
+    protected function generateEmbedding($outputPath)
     {
-        $this->pythonCalled = true;
         if ($this->throw) {
             throw new Exception('');
         }
-    }
 
-    protected function maybeDownloadCheckpoint($from, $to)
-    {
-        //
+        return "test";
     }
 }
