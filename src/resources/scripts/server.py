@@ -4,7 +4,7 @@ import threading
 import os
 from sam import Sam
 from microservice import process_requests, generate_response
-from job_listener_thread import JobListenerThread
+import sys
 
 MAGIC_SAM_MODEL_URL = 'MAGIC_SAM_MODEL_URL'
 MAGIC_SAM_CHECKPOINT_PATH = 'MAGIC_SAM_CHECKPOINT_PATH'
@@ -15,15 +15,6 @@ url = os.environ.get(MAGIC_SAM_MODEL_URL)
 path = os.environ.get(MAGIC_SAM_CHECKPOINT_PATH)
 model_type = os.environ.get(MAGIC_SAM_MODEL_TYPE)
 device = os.environ.get(MAGIC_SAM_DEVICE)
-
-
-def log_exception_and_exit(err):
-    logging.error(err)
-    os._exit(4)
-
-
-def job_excepthook(args):
-    log_exception_and_exit(args.exc_value)
 
 
 def is_checkpoint_path():
@@ -39,21 +30,14 @@ def check_sam_arguments():
             d=MAGIC_SAM_DEVICE if not device else ''))
 
 
-def start_listen_to_laravel_queue():
-    # forwards exception from job thread to main thread
-    t = threading.excepthook = job_excepthook
-    # start listening for jobs
-    JobListenerThread().start()
-
-
 try:
     check_sam_arguments()
     sam = Sam(url, path, model_type, device)
-    start_listen_to_laravel_queue()
     threading.Thread(target=process_requests, daemon=True, args=[sam]).start()
     app = Flask(__name__)
 except Exception as e:
-    log_exception_and_exit(e)
+    logging.error(e)
+    sys.exit(4)
 
 
 @app.route("/embedding", methods=['POST'])
