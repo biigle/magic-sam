@@ -131,7 +131,7 @@ class GenerateEmbedding
             ->post('http://pyworker:8080/embedding', ['out_path' => $outputPath]);
 
             if (!$response->successful()) {
-                throw new Exception("Couldn't process image for Magic-Sam tool. Please try again.");
+                throw new Exception("The image couldn't be processed by the Magic-Sam tool. Please try again.");
             }
             $embedding = $response->json()['data'];
             return base64_decode($embedding);
