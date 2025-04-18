@@ -124,12 +124,13 @@ class GenerateEmbedding
     {
         return FileCache::getOnce($this->image, function ($file, $path) use ($outputPath) {
             // Contact the pyworker to generate the embedding
-            $response = Http::post('http://pyworker:8080/embedding', [
-                'image' => base64_encode(File::get($path)),
-                'out_path' => $outputPath,
-            ]);
+            $response = Http::attach(
+                'image',
+                File::get($path),
+                $file->filename)
+            ->post('http://pyworker:8080/embedding', ['out_path' => $outputPath]);
 
-            if (!$response->ok()) {
+            if (!$response->successful()) {
                 throw new Exception("Couldn't process image for Magic-Sam tool. Please try again.");
             }
             $embedding = $response->json()['data'];
