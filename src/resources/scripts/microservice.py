@@ -3,8 +3,6 @@ import threading
 import queue
 import base64
 import os
-import tempfile
-import time
 
 request_queue = queue.Queue()
 finished_tasks = dict()
@@ -26,8 +24,7 @@ def process_requests(sam):
                 finished_tasks[req.out_path] = True
                 threadCondition.notify_all()
         except Exception as e:
-            logging.error("Failed to generate embedding for '{f}' due to:\n\t{e}".format(
-                f=req.out_path, e=e))
+            logging.error("Failed to generate embedding for '{f}' due to:\n\t{e}".format(f=req.image.filename, e=e))
             with threadCondition:
                 finished_tasks[req.out_path] = False
                 threadCondition.notify_all()
@@ -63,4 +60,4 @@ def generate_response(image, out_path):
             if os.path.exists(out_path):
                 os.remove(out_path)
 
-            return "Couldn't generate embedding", 400 #TODO überarbeitn
+            return "Couldn't generate embedding", 400

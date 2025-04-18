@@ -1,11 +1,9 @@
 from flask import Flask, request
 import logging
 import threading
-import base64
 import os
 from sam import Sam
 from microservice import process_requests, generate_response
-import time
 from job_listener_thread import JobListenerThread
 
 MAGIC_SAM_MODEL_URL = 'MAGIC_SAM_MODEL_URL'
@@ -60,7 +58,7 @@ except Exception as e:
 
 @app.route("/embedding", methods=['POST'])
 def index():
-    # files >500KB are saved in tmp file and are not read in memory
+    # files >500KB are saved in a tmp file and are not stored in memory
     image = request.files["image"] # tmp file reader
     out_path = request.form['out_path']
     return generate_response(image, out_path)
