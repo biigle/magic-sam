@@ -1,9 +1,9 @@
-from flask import Flask, request
+from flask import Flask, request, send_file, g
 import logging
 import os
 from sam import Sam
 import threading
-from microservice import process_requests, generate_response
+from microservice import process_requests, push_on_processing_queue
 from process_request_thread import ProcessRequestThread
 
 MAGIC_SAM_MODEL_URL = 'MAGIC_SAM_MODEL_URL'
@@ -59,6 +59,22 @@ except Exception as e:
 @app.route("/embedding", methods=['POST'])
 def index():
     # files >500KB are saved in a tmp file and are not stored in memory
-    image = request.files["image"]  # tmp file reader
+    image = request.files["image"]  # tmp file pointer
     out_path = request.form['out_path']
-    return generate_response(image, out_path)
+    push_on_processing_queue(image, out_path)
+    g.tmp_file = out_path
+    return send_file(out_path, 'application/octet-stream', True, out_path)
+
+# delete file even when unhandled exception was thrown
+@app.teardown_appcontext
+def finalize_request(exception):
+    if exception:
+        logging.exception(exception)
+
+    # remove tmp file of current request after it was sent successfully
+    try:
+        path = g.pop('tmp_file', None)
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        logging.error("Couldn't delete file '{f}'".format(f=path))

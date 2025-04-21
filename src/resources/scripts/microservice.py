@@ -1,7 +1,6 @@
 import logging
 import threading
 import queue
-import base64
 import os
 
 request_queue = queue.Queue()
@@ -30,7 +29,7 @@ def process_requests(sam):
                 threadCondition.notify_all()
 
 
-def generate_response(image, out_path):
+def push_on_processing_queue(image, out_path):
     ge_request = GenerateEmbeddingRequest(out_path, image)
     request_queue.put_nowait(ge_request)
     with threadCondition:
@@ -42,16 +41,7 @@ def generate_response(image, out_path):
         if finished_tasks[out_path]:
             del finished_tasks[out_path]
 
-            # load and encode embedding
-            embedding = open(out_path, 'rb').read()
-            data = base64.b64encode(embedding)
-            data = data.decode('utf-8')
-
-            # remove embedding file
-            if os.path.exists(out_path):
-                os.remove(out_path)
-
-            return {'data': data}
+            return
         else:
             # remove request identifier (out_path) from dict
             del finished_tasks[out_path]
