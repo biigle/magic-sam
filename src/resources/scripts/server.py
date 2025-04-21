@@ -3,6 +3,7 @@ import logging
 import os
 from sam import Sam
 import threading
+from tempfile import gettempdir
 from microservice import process_requests, push_on_processing_queue
 from process_request_thread import ProcessRequestThread
 
@@ -60,7 +61,8 @@ except Exception as e:
 def index():
     # files >500KB are saved in a tmp file and are not stored in memory
     image = request.files["image"]  # tmp file pointer
-    out_path = request.form['out_path']
+    filename = request.form['filename']
+    out_path = "{t}/{f}".format(t=gettempdir(), f=filename)
     push_on_processing_queue(image, out_path)
     g.tmp_file = out_path
     return send_file(out_path, 'application/octet-stream', True, out_path)

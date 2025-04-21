@@ -71,23 +71,21 @@ class GenerateEmbedding
             Cache::increment(config('magic_sam.job_count_cache_key'));
         }
 
-        $filename = "{$this->image->id}.npy";
-        $outputPath = sys_get_temp_dir() . "/{$filename}";
+        $embeddingFilename = "{$this->image->id}.npy";
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
         try {
             // Check whether file exists again, because job can be executed in app or pyworker container
-            if ($disk->exists($filename) && $this->isAsync) {
+            if ($disk->exists($embeddingFilename) && $this->isAsync) {
                 $this->decrementJobCacheCount();
-                EmbeddingAvailable::dispatch($filename, $this->user);
+                EmbeddingAvailable::dispatch($embeddingFilename, $this->user);
                 return;
             }
 
-            $embedding = $this->generateEmbedding($outputPath);
-            $disk->put($filename, $embedding);
+            $this->generateEmbedding($embeddingFilename, $disk->path($embeddingFilename));
 
             if ($this->isAsync) {
                 $this->decrementJobCacheCount();
-                EmbeddingAvailable::dispatch($filename, $this->user);
+                EmbeddingAvailable::dispatch($embeddingFilename, $this->user);
             }
         } catch (Exception $e) {
             if ($this->isAsync) {
@@ -116,25 +114,28 @@ class GenerateEmbedding
     /**
      * Generate the embedding.
      *
-     * @param string $outputPath
+     * @param string $embeddingFilename
      * 
      * @return string embedding as binary
      */
-    protected function generateEmbedding($outputPath)
+    protected function generateEmbedding($embeddingFilename, $destPath)
     {
-        return FileCache::getOnce($this->image, function ($file, $path) use ($outputPath) {
+        return FileCache::getOnce($this->image, function ($file, $path) use ($embeddingFilename, $destPath) {
             // Contact the pyworker to generate the embedding
-            $response = Http::attach(
-                'image',
-                File::get($path),
-                $file->filename)
-            ->post('http://pyworker:8080/embedding', ['out_path' => $outputPath]);
+            $response = Http::withOptions([
+                'sink' => $destPath // stream response body to disk
+            ])
+                ->attach(
+                    'image',
+                    File::get($path),
+                    $file->filename
+                )
+                ->post('http://pyworker:8080/embedding', ['filename' => $embeddingFilename]);
 
             if (!$response->successful()) {
                 throw new Exception("The image couldn't be processed by the Magic-Sam tool. Please try again.");
             }
-            $embedding = $response->json()['data'];
-            return base64_decode($embedding);
+            return;
         });
     }
 }
