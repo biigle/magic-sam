@@ -75,13 +75,9 @@ class GenerateEmbedding
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
         try {
             // Check whether file exists again, because job can be executed in app or pyworker container
-            if ($disk->exists($embeddingFilename) && $this->isAsync) {
-                $this->decrementJobCacheCount();
-                EmbeddingAvailable::dispatch($embeddingFilename, $this->user);
-                return;
+            if (!$disk->exists($embeddingFilename)) {
+                $this->generateEmbedding($embeddingFilename, $disk->path($embeddingFilename));
             }
-
-            $this->generateEmbedding($embeddingFilename, $disk->path($embeddingFilename));
 
             if ($this->isAsync) {
                 $this->decrementJobCacheCount();
