@@ -22,7 +22,7 @@ def wait_on_checkpoint_download(path, size, total_size, timeout):
 
     if download_failed:
         raise TimeoutError(
-            "Timeout ({t}s): Checkpoint file incomplete or corrupted.".format(t=timeout))
+            "Timeout ({t}s): Checkpoint file is incomplete or corrupted.".format(t=timeout))
 
     return
 
@@ -37,7 +37,7 @@ def download_checkpoint(url, path, timeout=60, chunk_size_kb=1024):
         return
 
     dir, _ = os.path.split(path)
-    chunk_size = chunk_size_kb * 1024  # 1MB
+    chunk_size = chunk_size_kb * 1024  # default 1MB
     if not os.path.exists(dir):
         os.mkdir(dir)
     with requests.get(url, stream=True) as r:

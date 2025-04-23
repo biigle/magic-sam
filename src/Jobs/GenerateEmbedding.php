@@ -62,10 +62,10 @@ class GenerateEmbedding
     }
 
     /**
-     * Handle the job.
-     *
-     * @return void
-     */
+      * Handle the job.
+      *
+      * @return void
+      */
     public function handle()
     {
         if ($this->isAsync) {
