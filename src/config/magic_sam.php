@@ -92,9 +92,9 @@ return [
     'prune_age_days' => env('MAGIC_SAM_PRUNE_AGE_DAYS', 30),
 
     /*
-     | Threshold that determines when jobs should be pushed on queue instead of being executed immediately
+     | Threshold that determines when jobs should be queued rather than executed immediately
     */
-    'queue_threshold' => 2,
+    'queue_threshold' => env('MAGIC_SAM_QUEUE_THRESHOLD', 2),
 
     /*
      | Cache key for job count
