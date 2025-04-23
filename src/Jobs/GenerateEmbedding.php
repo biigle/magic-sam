@@ -52,6 +52,7 @@ class GenerateEmbedding
      *
      * @param Image $image
      * @param User $user
+     * @param bool $isAsync
      */
     public function __construct(Image $image, User $user, bool $isAsync = True)
     {
