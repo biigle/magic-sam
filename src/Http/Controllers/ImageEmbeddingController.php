@@ -4,7 +4,6 @@ namespace Biigle\Modules\MagicSam\Http\Controllers;
 
 use Biigle\Image;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
