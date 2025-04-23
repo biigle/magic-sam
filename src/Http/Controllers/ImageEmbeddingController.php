@@ -43,8 +43,7 @@ class ImageEmbeddingController extends Controller
         $embedding = null;
         if ($disk->exists($filename)) {
             $path = $disk->path($filename);
-            // Embedding needs to be encoded because binary would be corrupted
-            $embedding = base64_encode(File::get($path));
+                $embedding = base64_encode(File::get($path));
         } else {
             $job_count = config('magic_sam.job_count_cache_key');
             if (!Cache::has($job_count)) {
@@ -58,11 +57,9 @@ class ImageEmbeddingController extends Controller
                     new GenerateEmbedding($image, $request->user()));
                    $embedding = null;
             } else {
-                // Call handle() directly instead of dispatchSync() to save time
                 $job = new GenerateEmbedding($image, $request->user(), False);
                 $job->handle();
                 $path = $disk->path($filename);
-                // Embedding needs to be encoded because binary would be corrupted
                 $embedding = base64_encode(File::get($path));
             }
         }
