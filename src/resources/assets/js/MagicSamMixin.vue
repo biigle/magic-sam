@@ -64,13 +64,13 @@ export default {
                 this.interactionMode = 'magicSam';
             }
         },
-        handleSamEmbeddingRequestSuccess(response) {
+        handleSamEmbeddingRequestSuccess(responseBody) {
             if (this.image.id !== loadingImageId) {
                 return;
             }
 
-            if (response.body.url !== null) {
-                this.handleSamEmbeddingAvailable(response.body);
+            if (responseBody.embedding !== null) {
+                this.handleSamEmbeddingAvailable(responseBody);
             } else {
                 // Wait for the Websockets event.
                 this.loadingMagicSamTakesLong = true;
@@ -81,7 +81,7 @@ export default {
             this.finishLoadingMagicSam();
             handleErrorResponse(response);
         },
-        handleSamEmbeddingAvailable(event) {
+        handleSamEmbeddingAvailable(response) {
             if (!this.loadingMagicSam) {
                 return;
             }
@@ -94,8 +94,18 @@ export default {
                 return;
             }
 
+            let bufferedEmbedding = null;
+            let url = null;
+
+            if (response.embedding) {
+                // Decode and write to arrayBuffer
+                bufferedEmbedding = Buffer.from(response.embedding, 'base64').buffer
+            } else {
+                url = response.url
+            }
+
             loadedImageId = this.image.id;
-            magicSamInteraction.updateEmbedding(this.image, event.url)
+            magicSamInteraction.updateEmbedding(this.image, url, bufferedEmbedding)
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
                     // The user could have disabled the interaction while loading.
@@ -160,11 +170,10 @@ export default {
 
             loadingImageId = this.image.id;
             this.startLoadingMagicSam();
-            ImageEmbeddingApi.save({id: this.image.id}, {})
-                .then(
-                    this.handleSamEmbeddingRequestSuccess,
+            ImageEmbeddingApi.save({ id: this.image.id }, {})
+                .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
                     this.handleSamEmbeddingRequestFailure
-                );
+                ).catch(handleErrorResponse);
         },
         canAdd: {
             handler(canAdd) {

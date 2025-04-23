@@ -1,0 +1,34 @@
+import threading
+import time
+
+class ProcessRequestThread(threading.Thread):
+
+    # needed in new exception hook
+    exception = None
+
+    sam = None
+
+    retry_count = None
+
+    target = None
+
+    def __init__(self, sam, target, retry_count = 3):
+        self.sam = sam
+        self.retry_count = retry_count
+        self.target = target
+        super().__init__()
+
+
+    def run(self):
+        # elapsed time of listener thread in seconds
+        elapsed_time = 5
+        # restart thread if possible
+        while self.retry_count > 0:
+            start = time.time()
+            t = threading.Thread(target=self.target, daemon=True, args=[self.sam])
+            t.start()
+            t.join()
+            end = time.time()
+            if ((end-start) < elapsed_time):
+                self.retry_count -= 1
+        raise BaseException("Failed to process requests due to:\n{e}\nShutting down the server.".format(e=self.exception))
