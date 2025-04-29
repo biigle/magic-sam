@@ -1,9 +1,10 @@
 export let annotationCanvasMixins = biigle.$require('annotations.stores.canvasMixins');
 export let Echo = biigle.$require('echo');
 export let Events = biigle.$require('events');
+export let handleErrorResponse = biigle.$require('handleErrorResponse');
 export let Keyboard = biigle.$require('keyboard');
 export let Messages = biigle.$require('messages');
-export let handleErrorResponse = Messages.handleErrorResponse;
+export let Resource = biigle.$require('resource');
 export let SettingsTabPlugins = biigle.$require('annotations.components.settingsTabPlugins');
 export let Styles = biigle.$require('annotations.stores.styles');
 export let throttle = biigle.$require('utils.throttle');

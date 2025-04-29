@@ -1,12 +1,12 @@
 <script>
-import ImageEmbeddingApi from './api/image';
-import MagicSamInteraction from './ol/MagicSamInteraction';
-import {Echo} from './import';
-import {handleErrorResponse} from './import';
-import {Keyboard} from './import';
-import {Messages} from './import';
-import {Styles} from './import';
-import {Events} from './import';
+import ImageEmbeddingApi from './api/image.js';
+import MagicSamInteraction from './ol/MagicSamInteraction.js';
+import {Echo} from './import.js';
+import {handleErrorResponse} from './import.js';
+import {Keyboard} from './import.js';
+import {Messages} from './import.js';
+import {Styles} from './import.js';
+import {Events} from './import.js';
 
 let magicSamInteraction;
 let loadedImageId;
@@ -178,7 +178,7 @@ export default {
         },
     },
     created() {
-        Events.$on('settings.samThrottleInterval', this.setThrottleInterval);
+        Events.on('settings.samThrottleInterval', this.setThrottleInterval);
         Echo.getInstance().private(`user-${this.userId}`)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingAvailable', this.handleSamEmbeddingAvailable)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingFailed', this.handleSamEmbeddingFailed);

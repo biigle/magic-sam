@@ -7,7 +7,7 @@ import VectorLayer from '@biigle/ol/layer/Vector';
 import VectorSource from '@biigle/ol/source/Vector';
 import {InferenceSession, Tensor} from "onnxruntime-web";
 import {linearRingContainsXY} from '@biigle/ol/geom/flat/contains';
-import {throttle} from '../import';
+import {throttle} from '../import.js';
 
 const LONG_SIDE_LENGTH = 1024;
 
@@ -105,7 +105,7 @@ class MagicSamInteraction extends PointerInteraction {
 
         // Maybe the model is not initialized at this point so we have to wait for that,
         // too.
-        return Vue.Promise.all([npy.load(url), this.initPromise])
+        return Promise.all([npy.load(url), this.initPromise])
             .then(([npArray, ]) => {
                 this.embedding = new Tensor("float32", npArray.data, npArray.shape);
                 this._runModelWarmup();

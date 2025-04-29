@@ -1,5 +1,11 @@
+<template>
+    <div class="sidebar-tab__section">
+        <h5 title="Refresh rate for updating Magic SAM proposals">Magic SAM refresh rate (<span v-text="stepName"></span>)</h5>
+        <input type="range" min="0" max="4" step="1" v-model="stepIndex" onmouseup="this.blur()">
+    </div>
+</template>
 <script>
-import {Events} from '../import';
+import {Events} from '../import.js';
 /**
  * The plugin component to edit the Magic-SAM throttle interval.
  *
@@ -27,7 +33,7 @@ export default {
     watch: {
         stepIndex(index) {
             let interval = this.steps[index];
-            Events.$emit('settings.samThrottleInterval', interval);
+            Events.emit('settings.samThrottleInterval', interval);
             this.settings.set('samRefreshRateStep', index);
         },
     },
