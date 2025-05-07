@@ -4,7 +4,6 @@ namespace Biigle\Modules\MagicSam\Http\Controllers;
 
 use Biigle\Image;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -41,8 +40,7 @@ class ImageEmbeddingController extends Controller
         $filename = "{$image->id}.npy";
         $embedding = null;
         if ($disk->exists($filename)) {
-            $path = $disk->path($filename);
-                $embedding = base64_encode(File::get($path));
+            $embedding = base64_encode($disk->get($filename));
         } else {
             $job_count = config('magic_sam.job_count_cache_key');
             if (!Cache::has($job_count)) {
@@ -51,15 +49,14 @@ class ImageEmbeddingController extends Controller
 
             if (Cache::get($job_count) > config('magic_sam.queue_threshold')) {
                 Queue::connection(config('magic_sam.request_connection'))
-                ->pushOn(
-                    config('magic_sam.request_queue'),
-                    new GenerateEmbedding($image, $request->user()));
-                   $embedding = null;
+                    ->pushOn(
+                        config('magic_sam.request_queue'),
+                        new GenerateEmbedding($image, $request->user()));
+                $embedding = null;
             } else {
                 $job = new GenerateEmbedding($image, $request->user(), False);
                 $job->handle();
-                $path = $disk->path($filename);
-                $embedding = base64_encode(File::get($path));
+                $embedding = base64_encode($disk->get($filename));
             }
         }
 
