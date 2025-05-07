@@ -75,10 +75,7 @@ class GenerateEmbedding
         $embeddingFilename = "{$this->image->id}.npy";
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
         try {
-            // Check whether file exists again, because job can be executed in app or worker container
-            if (!$disk->exists($embeddingFilename)) {
-                $this->generateEmbedding($embeddingFilename, $disk->path($embeddingFilename));
-            }
+            $this->generateEmbedding($embeddingFilename, $disk->path($embeddingFilename));
 
             if ($this->isAsync) {
                 $this->decrementJobCacheCount();
