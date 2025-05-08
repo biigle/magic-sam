@@ -149,7 +149,7 @@ class GenerateEmbedding
     {
         return FileCache::getOnce($this->image, function ($file, $path) use ($emb, $embeddingFilename, $destPath) {
             // (crop and) resize image
-            $image = $this->processImage($path);
+            $image = $this->processImage($emb, $path);
             // Contact the pyworker to generate the embedding
             $response = Http::withOptions([
                 'sink' => $destPath // stream response body to disk
@@ -172,12 +172,13 @@ class GenerateEmbedding
         });
     }
 
-    protected function processImage($path)
+    protected function processImage($emb, $path)
     {
         $width = $this->image->width;
         $height = $this->image->height;
         $format = pathinfo($this->image->filename, PATHINFO_EXTENSION);
 
+        $tmpPath = null;
         // cut image section
         if ($this->extent) {
             $width = floor(abs($this->extent[0] - $this->extent[2]));
@@ -185,21 +186,15 @@ class GenerateEmbedding
 
             $image = VipsImage::newFromFile($path); // TODO: does this work with large images ??
             $image = $image->crop($this->extent[0], $this->extent[1], $width, $height);
-            $filenameHash = md5(serialize([$this->image->id, ...$this->extent]));
-            $path = sys_get_temp_dir() . "/tmp_{$filenameHash}.{$format}";
-            $image->writeToFile($path); // TODO: alternative ohne speichern?
+            $filenameHash = $emb->getFilenameHash();
+            $tmpPath = sys_get_temp_dir() . "/tmp_{$filenameHash}.{$format}";
+            $image->writeToFile($tmpPath); // TODO: alternative ohne speichern?
         }
 
         // resize image
         $targetSize = 1024;
-
-        if ($width > $height) {
-            $height = ($height / $width) * $targetSize;
-            $width = $targetSize;
-        } else {
-            $width = ($width / $height) * $targetSize;
-            $height = $targetSize;
-        }
+        $height = floor(($height / $width) * $targetSize);
+        $width = $targetSize;
 
         $buffer = $image->thumbnail($path, $width, [
             'height' => $height,
@@ -207,11 +202,13 @@ class GenerateEmbedding
             // images is not reliable.
             'no-rotate' => true,
         ])->writeToBuffer(".{$format}", [
-                    'Q' => 85,
-                    'strip' => true,
-                ]);
+            'Q' => 85,
+            'strip' => true,
+        ]);
 
-        unlink($path); // check if true
+        if ($tmpPath) {
+            unlink($tmpPath); // check if true
+        }
 
         return $buffer;
     }
