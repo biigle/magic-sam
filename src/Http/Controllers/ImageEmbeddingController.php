@@ -55,6 +55,7 @@ class ImageEmbeddingController extends Controller
 
         if ($emb) {
             $embBase64 = base64_encode($emb->getFile());
+            $embId = $emb->id;
         } else {
             $job_count = config('magic_sam.job_count_cache_key');
             if (!Cache::has($job_count)) {
