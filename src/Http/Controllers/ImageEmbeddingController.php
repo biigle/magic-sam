@@ -6,7 +6,7 @@ use Biigle\Image;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Storage;
+use Biigle\Modules\MagicSam\Embedding;
 use Biigle\Http\Controllers\Api\Controller;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
 
@@ -33,33 +33,52 @@ class ImageEmbeddingController extends Controller
      */
     public function store(Request $request, $id)
     {
+        /**
+         * TODO: request validation
+         * check if viewports are >= 1024x1024
+         * check if coords > 0 and < image size
+         */
         $image = Image::findOrFail($id);
         $this->authorize('access', $image);
 
-        $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
-        $filename = "{$image->id}.npy";
-        $embedding = null;
-        if ($disk->exists($filename)) {
-            $embedding = base64_encode($disk->get($filename));
+        $extent = $request->input('extent');
+
+        $emb = Embedding::where([
+            'image_id' => $id,
+            'x' => $extent[0],
+            'y' => $extent[1],
+            'x2' => $extent[2],
+            'y2' => $extent[3]
+        ])->first();
+
+        //TODO: check if there is a suitable embedding already
+
+        if ($emb) {
+            $embBase64 = base64_encode($emb->getFile());
         } else {
             $job_count = config('magic_sam.job_count_cache_key');
             if (!Cache::has($job_count)) {
                 Cache::add($job_count, 1);
             }
 
-            if (Cache::get($job_count) > config('magic_sam.queue_threshold')) {
+            $shouldBeQueued = $image->tiled || Cache::get($job_count) > config('magic_sam.queue_threshold');
+
+            if ($shouldBeQueued) {
                 Queue::connection(config('magic_sam.request_connection'))
                     ->pushOn(
                         config('magic_sam.request_queue'),
-                        new GenerateEmbedding($image, $request->user()));
-                $embedding = null;
+                        new GenerateEmbedding($image, $request->user())
+                    );
+                $embBase64 = null;
+                $embId = null;
             } else {
-                $job = new GenerateEmbedding($image, $request->user(), False);
+                $job = new GenerateEmbedding($image, $request->user(), False, $request->input('extent'));
                 $job->handle();
-                $embedding = base64_encode($disk->get($filename));
+                $embBase64 = base64_encode($job->embedding->getFile());
+                $embId = $job->embedding->id;
             }
         }
 
-        return response()->json(['embedding' => $embedding]);
+        return response()->json(['id' => $embId,'embedding' => $embBase64]);
     }
 }
