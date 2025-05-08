@@ -1,6 +1,5 @@
 from PIL import Image
 from segment_anything import sam_model_registry
-from segment_anything.utils.transforms import ResizeLongestSide
 import numpy as np
 import torch
 import os
@@ -61,8 +60,6 @@ class Sam():
         self.sam.to(device=device)
 
     def generate_embedding(self, out_path, image):
-        transform = ResizeLongestSide(self.sam.image_encoder.img_size)
-
         image = Image.open(image.stream)
         if image.mode in ['RGBA', 'L', 'P', 'CMYK']:
             image = image.convert('RGB')
@@ -77,11 +74,8 @@ class Sam():
             raise ValueError(f'Only RGB images supported, was {image.mode}')
 
         with torch.no_grad():
-            input_image = transform.apply_image(np.array(image))
-            input_image_torch = torch.as_tensor(
-                input_image, device=self.device)
-            transformed_image = input_image_torch.permute(
-                2, 0, 1).contiguous()[None, :, :, :]
+            input_image_torch = torch.as_tensor(np.array(image), device=self.device)
+            transformed_image = input_image_torch.permute(2, 0, 1).contiguous()[None, :, :, :]
             input_image = self.sam.preprocess(transformed_image)
             image_embedding = self.sam.image_encoder(input_image).cpu().numpy()
 
