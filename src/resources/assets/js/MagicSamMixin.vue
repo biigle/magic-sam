@@ -39,6 +39,15 @@ export default {
 
             return 'Draw a polygon using the magic SAM tool 𝗭';
         },
+        viewportExtent() {
+            let viewport = [...this.viewExtent];
+            // invert y-axis to start from low to high
+            this.invertPointsYAxis(viewport);
+            return this.validateExtent(viewport);
+        },
+        invertedViewportExtent() {
+            return this.validateExtent([...this.viewExtent]);
+        }
     },
     methods: {
         setThrottleInterval(interval) {
@@ -105,7 +114,7 @@ export default {
             }
 
             loadedImageId = this.image.id;
-            magicSamInteraction.updateEmbedding(this.image, url, bufferedEmbedding)
+            magicSamInteraction.updateEmbedding(url, bufferedEmbedding, this.invertedViewportExtent)
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
                     // The user could have disabled the interaction while loading.
@@ -136,6 +145,15 @@ export default {
             magicSamInteraction.setActive(false);
             this.map.addInteraction(magicSamInteraction);
         },
+        validateExtent(extent) {
+            return extent.map((c, i) => {
+                if (i % 2 == 0) {
+                    return c < 0 ? 0 : c > this.image.width ? this.image.width : c
+                } else {
+                    return c < 0 ? 0 : c > this.image.height ? this.image.height : c
+                }
+            });
+        }
     },
     watch: {
         image(image) {
@@ -161,7 +179,6 @@ export default {
 
             if (loadedImageId === this.image.id) {
                 magicSamInteraction.setActive(true);
-                return;
             }
 
             if (this.loadingMagicSam) {
@@ -170,7 +187,7 @@ export default {
 
             loadingImageId = this.image.id;
             this.startLoadingMagicSam();
-            ImageEmbeddingApi.save({ id: this.image.id }, {})
+            ImageEmbeddingApi.save({ id: this.image.id }, { extent: this.viewportExtent })
                 .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
                     this.handleSamEmbeddingRequestFailure
                 ).catch(handleErrorResponse);
