@@ -177,15 +177,15 @@ class GenerateEmbedding
         $width = $this->image->width;
         $height = $this->image->height;
         $format = pathinfo($this->image->filename, PATHINFO_EXTENSION);
-
         $tmpPath = null;
-        // cut image section
-        if ($this->extent) {
+        
+        // crop image
+        if (!$this->isFullImage()) {
             $width = floor(abs($this->extent[0] - $this->extent[2]));
             $height = floor(abs($this->extent[1] - $this->extent[3]));
 
             $image = VipsImage::newFromFile($path); // TODO: does this work with large images ??
-            $image = $image->crop($this->extent[0], $this->extent[1], $width, $height);
+            $image = $image->crop($this->extent[0], $this->extent[3], $width, $height);
             $filenameHash = $emb->getFilenameHash();
             $tmpPath = sys_get_temp_dir() . "/tmp_{$filenameHash}.{$format}";
             $image->writeToFile($tmpPath); // TODO: alternative ohne speichern?
@@ -193,24 +193,33 @@ class GenerateEmbedding
 
         // resize image
         $targetSize = 1024;
-        $height = floor(($height / $width) * $targetSize);
-        $width = $targetSize;
+        if ($width > $height) {
+            $height = floor(($height / $width) * $targetSize);
+            $width = $targetSize;
+        } else {
+            $width = floor($width / $height) * $targetSize;
+            $height = $targetSize;
+        }
 
-        $buffer = $image->thumbnail($path, $width, [
+        $buffer = $image->thumbnail($tmpPath, $width, [
             'height' => $height,
             // Don't auto rotate thumbnails because the orientation of AUV captured
             // images is not reliable.
             'no-rotate' => true,
         ])->writeToBuffer(".{$format}", [
-            'Q' => 85,
-            'strip' => true,
-        ]);
+                    'Q' => 85,
+                    'strip' => true,
+                ]);
 
         if ($tmpPath) {
             unlink($tmpPath); // check if true
         }
 
         return $buffer;
+    }
+
+    protected function isFullImage(){
+        return $this->extent[0] == 0 && $this->extent[1] == 0 && $this->extent[2] == $this->image->width && $this->extent[3]->height == $this->image->height;
     }
 
 }
