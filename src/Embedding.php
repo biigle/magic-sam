@@ -72,7 +72,6 @@ class Embedding extends Model
         return abs($this->y2-$this->y);
     }
 
-
     /**
      * Create a new factory instance for the model.
      *
@@ -81,6 +80,28 @@ class Embedding extends Model
     protected static function newFactory()
     {
         return EmbeddingFactory::new();
+    }
+
+    public static function getNearestEmbedding($imgId, $extent, $embId = 0)
+    {
+        $sizeFactor = config('magic_sam.image_section_max_size_factor');
+        $width = abs($extent[2] - $extent[0]);
+        $height = abs($extent[3] - $extent[1]);
+
+        $maxWidth = $width * (1 + $sizeFactor);
+        $maxHeight = $height * (1 + $sizeFactor);
+
+        $minX = $extent[0] * (1 - $sizeFactor);
+        $minY = $extent[1] * (1 - $sizeFactor);
+
+        return self::where('image_id', '=', $imgId)
+            ->when($embId, fn($query) => $query->where('id', '!=', $embId)) // only for refinement step
+            ->whereRaw("x = ? and y = ? and x2 = ? and y2 = ?", [$extent])
+            ->orWhereRaw("abs(x2-x) < ?", [$maxWidth])
+            ->whereRaw("abs(y2-y) < ?", [$maxHeight])
+            ->whereRaw("x > ? and x <= ?", [$minX, $extent[0]])
+            ->whereRaw("y > ? and y <= ?", [$minY, $extent[1]])
+            ->first(); // TODO: Look for emb whose center is nearest to the current embedding's center
     }
 
 }
