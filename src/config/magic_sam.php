@@ -99,6 +99,11 @@ return [
     /*
      | Cache key for job count
     */
-    'job_count_cache_key' => 'job_count'
+    'job_count_cache_key' => 'job_count',
+
+    /*
+     | Factor that determines the image section size limit
+    */
+    'image_section_max_size_factor' => 0.1
 
 ];
