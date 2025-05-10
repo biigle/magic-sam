@@ -5,12 +5,16 @@ namespace Biigle\Modules\MagicSam;
 use Biigle\Image;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Biigle\Modules\MagicSam\Database\factories\EmbeddingFactory;
 
 /**
  * This model stores information of an SAM embedding
  */
 class Embedding extends Model
 {
+    use HasFactory;
+
     /**
      * The attributes that should be casted to native types.
      *
@@ -66,6 +70,17 @@ class Embedding extends Model
 
     public function getHeight(){
         return abs($this->y2-$this->y);
+    }
+
+
+    /**
+     * Create a new factory instance for the model.
+     *
+     * @return \Illuminate\Database\Eloquent\Factories\Factory
+     */
+    protected static function newFactory()
+    {
+        return EmbeddingFactory::new();
     }
 
 }
