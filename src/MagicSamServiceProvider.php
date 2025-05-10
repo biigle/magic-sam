@@ -21,6 +21,7 @@ class MagicSamServiceProvider extends ServiceProvider
     public function boot(Modules $modules, Router $router)
     {
         $this->loadViewsFrom(__DIR__.'/resources/views', 'magic-sam');
+        $this->loadMigrationsFrom(__DIR__.'/Database/migrations');
 
         $router->group([
             'namespace' => 'Biigle\Modules\MagicSam\Http\Controllers',
