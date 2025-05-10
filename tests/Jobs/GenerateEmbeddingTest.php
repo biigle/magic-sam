@@ -124,7 +124,7 @@ class GenerateEmbeddingStub extends GenerateEmbedding
 
     public $throw = false;
 
-    protected function generateEmbedding($filename, $destPath)
+    protected function generateEmbedding($emb, $embeddingFilename, $destPath)
     {
         if ($this->throw) {
             throw new Exception('');
