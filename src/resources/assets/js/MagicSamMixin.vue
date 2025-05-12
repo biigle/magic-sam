@@ -23,6 +23,7 @@ export default {
             loadingMagicSam: false,
             loadingMagicSamTakesLong: false,
             throttleInterval: 1000,
+            embeddingId: 0,
         };
     },
     computed: {
@@ -45,9 +46,6 @@ export default {
             this.invertPointsYAxis(viewport);
             return this.validateExtent(viewport);
         },
-        invertedViewportExtent() {
-            return this.validateExtent([...this.viewExtent]);
-        }
     },
     methods: {
         setThrottleInterval(interval) {
@@ -79,6 +77,7 @@ export default {
             }
 
             if (responseBody.embedding !== null) {
+                this.embeddingId = responseBody.id
                 this.handleSamEmbeddingAvailable(responseBody);
             } else {
                 // Wait for the Websockets event.
@@ -104,17 +103,20 @@ export default {
             }
 
             let bufferedEmbedding = null;
+            let usedExtent = null;
             let url = null;
 
             if (response.embedding) {
                 // Decode and write to arrayBuffer
                 bufferedEmbedding = Buffer.from(response.embedding, 'base64').buffer
+                usedExtent = response.extent;
             } else {
                 url = response.url
             }
 
             loadedImageId = this.image.id;
-            magicSamInteraction.updateEmbedding(url, bufferedEmbedding, this.invertedViewportExtent)
+            this.invertPointsYAxis(usedExtent);
+            magicSamInteraction.updateEmbedding(url, bufferedEmbedding, usedExtent)
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
                     // The user could have disabled the interaction while loading.
@@ -187,6 +189,7 @@ export default {
 
             loadingImageId = this.image.id;
             this.startLoadingMagicSam();
+
             ImageEmbeddingApi.save({ id: this.image.id }, { extent: this.viewportExtent })
                 .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
                     this.handleSamEmbeddingRequestFailure
