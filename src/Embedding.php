@@ -91,16 +91,21 @@ class Embedding extends Model
         $maxWidth = $width * (1 + $sizeFactor);
         $maxHeight = $height * (1 + $sizeFactor);
 
-        $minX = $extent[0] * (1 - $sizeFactor);
-        $minY = $extent[1] * (1 - $sizeFactor);
+        $maxDistX = $extent[0] * $sizeFactor;
+        $maxDistY = $extent[1] * $sizeFactor;
 
-        return self::where('image_id', '=', $imgId)
-            ->when($embId, fn($query) => $query->where('id', '!=', $embId)) // only for refinement step
-            ->whereRaw("x = ? and y = ? and x2 = ? and y2 = ?", [$extent])
-            ->orWhereRaw("abs(x2-x) < ?", [$maxWidth])
-            ->whereRaw("abs(y2-y) < ?", [$maxHeight])
-            ->whereRaw("x > ? and x <= ?", [$minX, $extent[0]])
-            ->whereRaw("y > ? and y <= ?", [$minY, $extent[1]])
+        return self::where('image_id', $imgId)
+            ->when($embId, fn($query) => $query->where('id', '!=', $embId)) // exclude current embedding
+            ->where(function ($query) use ($extent) {
+                $query->whereRaw("x = ? AND y = ? AND x2 = ? AND y2 = ?", $extent);
+            })
+            ->orWhere(function ($query) use ($imgId, $extent, $width, $maxWidth, $height, $maxHeight, $maxDistX, $maxDistY) {
+                $query->where('image_id', $imgId)
+                    ->whereRaw("ABS(x2 - x) > ? AND ABS(x2 - x) < ?", [$width, $maxWidth])
+                    ->whereRaw("ABS(y2 - y) > ? AND ABS(y2 - y) < ?", [$height, $maxHeight])
+                    ->whereRaw("? - x < ?", [$extent[0], $maxDistX])
+                    ->whereRaw("y - ? < ?", [$extent[1], $maxDistY]);
+            })
             ->first(); // TODO: Look for emb whose center is nearest to the current embedding's center
     }
 
