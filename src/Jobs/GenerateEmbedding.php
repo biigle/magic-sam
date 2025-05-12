@@ -8,7 +8,6 @@ use Biigle\User;
 use Biigle\Image;
 use Illuminate\Bus\Queueable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Jcupitt\Vips\Image as VipsImage;
 use Illuminate\Support\Facades\Cache;
@@ -197,7 +196,7 @@ class GenerateEmbedding
             $height = floor(($height / $width) * $targetSize);
             $width = $targetSize;
         } else {
-            $width = floor($width / $height) * $targetSize;
+            $width = floor(($width / $height) * $targetSize);
             $height = $targetSize;
         }
 
