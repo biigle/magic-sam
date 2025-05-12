@@ -104,6 +104,6 @@ return [
     /*
      | Factor that determines the image section size limit
     */
-    'image_section_max_size_factor' => 0.1
+    'image_section_max_size_factor' => 0.31
 
 ];
