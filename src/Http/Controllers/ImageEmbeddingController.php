@@ -36,26 +36,17 @@ class ImageEmbeddingController extends Controller
         /**
          * TODO: request validation
          * check if viewports are >= 1024x1024
-         * check if coords > 0 and < image size
          */
         $image = Image::findOrFail($id);
         $this->authorize('access', $image);
 
         $extent = $request->input('extent');
 
-        $emb = Embedding::where([
-            'image_id' => $id,
-            'x' => $extent[0],
-            'y' => $extent[1],
-            'x2' => $extent[2],
-            'y2' => $extent[3]
-        ])->first();
-
-        //TODO: check if there is a suitable embedding already
-
+        $emb = Embedding::getNearestEmbedding($id, $extent);
         if ($emb) {
             $embBase64 = base64_encode($emb->getFile());
             $embId = $emb->id;
+            $embExtent = $emb->getExtent();
         } else {
             $job_count = config('magic_sam.job_count_cache_key');
             if (!Cache::has($job_count)) {
@@ -68,18 +59,20 @@ class ImageEmbeddingController extends Controller
                 Queue::connection(config('magic_sam.request_connection'))
                     ->pushOn(
                         config('magic_sam.request_queue'),
-                        new GenerateEmbedding($image, $request->user())
+                        new GenerateEmbedding($image, $request->user(), true, $request->input('extent'))
                     );
                 $embBase64 = null;
                 $embId = null;
+                $embExtent = null;
             } else {
                 $job = new GenerateEmbedding($image, $request->user(), False, $request->input('extent'));
                 $job->handle();
                 $embBase64 = base64_encode($job->embedding->getFile());
                 $embId = $job->embedding->id;
+                $embExtent = $job->embedding->getExtent();
             }
         }
 
-        return response()->json(['id' => $embId,'embedding' => $embBase64]);
+        return response()->json(['id' => $embId,'embedding' => $embBase64, 'extent' => $embExtent]);
     }
 }
