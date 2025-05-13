@@ -64,7 +64,7 @@ export default {
         toggleMagicSam() {
             if (this.isMagicSamming) {
                 this.resetInteractionMode();
-            } else if (this.canAdd && !this.image.tiled) {
+            } else if (this.canAdd) {
                 if (!magicSamInteraction) {
                     this.initMagicSamInteraction();
                 }

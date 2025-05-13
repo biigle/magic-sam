@@ -1,5 +1,4 @@
-<control-button v-if="image?.tiled" icon="fa-hat-wizard" title="The magic SAM tool is not available for very large images" :disabled="true"></control-button>
-<control-button v-else v-cloak icon="fa-hat-wizard" :title="magicSamButtonTitle" :active="isMagicSamming" :loading="loadingMagicSam" :class="magicSamButtonClass" v-on:click="toggleMagicSam"></control-button>
+<control-button v-cloak icon="fa-hat-wizard" :title="magicSamButtonTitle" :active="isMagicSamming" :loading="loadingMagicSam" :class="magicSamButtonClass" v-on:click="toggleMagicSam"></control-button>
 
 @push('scripts')
 <script src="{{ cachebust_asset('vendor/magic-sam/scripts/main.js') }}"></script>
