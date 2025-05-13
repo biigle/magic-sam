@@ -110,12 +110,13 @@ export default {
                 // Decode and write to arrayBuffer
                 bufferedEmbedding = Buffer.from(response.embedding, 'base64').buffer
                 usedExtent = response.extent;
+                this.invertPointsYAxis(usedExtent);
             } else {
                 url = response.url
+                usedExtent = this.viewExtent;
             }
 
             loadedImageId = this.image.id;
-            this.invertPointsYAxis(usedExtent);
             magicSamInteraction.updateEmbedding(url, bufferedEmbedding, usedExtent)
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
