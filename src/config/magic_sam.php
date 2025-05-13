@@ -104,6 +104,11 @@ return [
     /*
      | Factor that determines the image section size limit
     */
-    'image_section_max_size_factor' => 0.31
+    'image_section_max_size_factor' => 0.31,
+
+    /*
+    | Lower size limit for images processed by magic-sam
+    */
+    'sam_target_size' => env('MAGIC_SAM_TARGET_SIZE', 1024),
 
 ];
