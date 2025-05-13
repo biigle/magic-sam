@@ -111,7 +111,7 @@ class GenerateEmbedding
 
             if ($this->isAsync) {
                 $this->decrementJobCacheCount();
-                EmbeddingAvailable::dispatch($embFilename, $this->user);
+                EmbeddingAvailable::dispatch("{$prefix}/{$embFilename}", $this->user);
             }
         } catch (Exception $e) {
             if ($this->isAsync) {
