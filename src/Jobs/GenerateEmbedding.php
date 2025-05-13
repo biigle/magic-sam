@@ -183,7 +183,7 @@ class GenerateEmbedding
             $width = floor(abs($this->extent[0] - $this->extent[2]));
             $height = floor(abs($this->extent[1] - $this->extent[3]));
 
-            $image = VipsImage::newFromFile($path); // TODO: does this work with large images ??
+            $image = VipsImage::newFromFile($path);
             $image = $image->crop($this->extent[0], $this->extent[3], $width, $height);
             $filenameHash = $emb->getFilenameHash();
             $tmpPath = sys_get_temp_dir() . "/tmp_{$filenameHash}.{$format}";
@@ -191,7 +191,7 @@ class GenerateEmbedding
         }
 
         // resize image
-        $targetSize = 1024;
+        $targetSize = config('magic_sam.sam_target_size');
         if ($width > $height) {
             $height = floor(($height / $width) * $targetSize);
             $width = $targetSize;
