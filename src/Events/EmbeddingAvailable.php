@@ -30,6 +30,12 @@ class EmbeddingAvailable implements ShouldBroadcastNow
     public $filename;
 
     /**
+     * The viewport's extent of the embedding
+     * @var array
+     */
+    public $extent;
+
+    /**
      * The name of the queue the job should be sent to.
      *
      * @var string|null
@@ -50,10 +56,11 @@ class EmbeddingAvailable implements ShouldBroadcastNow
      * @param User $user
      * @return void
      */
-    public function __construct($filename, User $user)
+    public function __construct($filename, User $user, array $extent)
     {
         $this->filename = $filename;
         $this->user = $user;
+        $this->extent = $extent;
     }
 
     /**
@@ -83,6 +90,7 @@ class EmbeddingAvailable implements ShouldBroadcastNow
 
         return [
             'url' => $url,
+            'extent' => $this->extent,
         ];
     }
 }
