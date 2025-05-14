@@ -47,8 +47,8 @@ class StoreEmbedding extends FormRequest
             $width = $extent[2] - $extent[0];
             $height = $extent[1] - $extent[3];
 
-            if ($width < $targetSize || $height < $targetSize) {
-                $validator->errors()->add('extent', "The image's width and height need to be greater or equal than {$targetSize} pixel.");
+            if (max($width, $height) < $targetSize) {
+                $validator->errors()->add('extent', "The image's longest side must be at least {$targetSize} pixels.");
             }
         });
     }
