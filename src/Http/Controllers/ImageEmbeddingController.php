@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Queue;
 use Biigle\Modules\MagicSam\Embedding;
 use Biigle\Http\Controllers\Api\Controller;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
+use Biigle\Modules\MagicSam\Http\Requests\StoreEmbedding;
 
 class ImageEmbeddingController extends Controller
 {
@@ -31,15 +32,9 @@ class ImageEmbeddingController extends Controller
      * @param Request $request
      * @param int $id
      */
-    public function store(Request $request, $id)
+    public function store(StoreEmbedding $request, $id)
     {
-        /**
-         * TODO: request validation
-         * check if viewports are >= 1024x1024
-         */
         $image = Image::findOrFail($id);
-        $this->authorize('access', $image);
-
         $extent = $request->input('extent');
 
         $emb = Embedding::getNearestEmbedding($id, $extent);
