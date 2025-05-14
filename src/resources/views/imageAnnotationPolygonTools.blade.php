@@ -4,6 +4,7 @@
 <script src="{{ cachebust_asset('vendor/magic-sam/scripts/main.js') }}"></script>
 <script type="text/javascript">
     biigle.$declare('magic-sam.onnx-url', '{{cachebust_asset('vendor/magic-sam/'.config('magic_sam.onnx_file'))}}');
+    biigle.$declare('magic-sam.sam_target_size', {{config('magic_sam.sam_target_size')}});
 </script>
 @endpush
 

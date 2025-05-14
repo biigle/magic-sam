@@ -24,6 +24,7 @@ export default {
             loadingMagicSamTakesLong: false,
             throttleInterval: 1000,
             embeddingId: 0,
+            targetSize: 1024,
         };
     },
     computed: {
@@ -109,12 +110,12 @@ export default {
             if (response.embedding) {
                 // Decode and write to arrayBuffer
                 bufferedEmbedding = Buffer.from(response.embedding, 'base64').buffer
-                usedExtent = response.extent;
-                this.invertPointsYAxis(usedExtent);
             } else {
                 url = response.url
-                usedExtent = this.viewExtent;
             }
+
+            usedExtent = response.extent;
+            this.invertPointsYAxis(usedExtent);
 
             loadedImageId = this.image.id;
             magicSamInteraction.updateEmbedding(url, bufferedEmbedding, usedExtent)
@@ -149,14 +150,32 @@ export default {
             this.map.addInteraction(magicSamInteraction);
         },
         validateExtent(extent) {
-            return extent.map((c, i) => {
+            // Set viewport values on 0 if the viewport corners are located outside the image
+            let viewport = extent.map((c, i) => {
                 if (i % 2 == 0) {
                     return c < 0 ? 0 : c > this.image.width ? this.image.width : c
                 } else {
                     return c < 0 ? 0 : c > this.image.height ? this.image.height : c
                 }
             });
-        }
+
+            // Resize images which are smaller than the target size on at least on edge
+            let width = viewport[2] - viewport[0];
+            let height = viewport[1] - viewport[3];
+
+            if (width < this.targetSize || height < this.targetSize) {
+                let diffX = (this.targetSize - width) / 2;
+                let diffY = (this.targetSize - height) / 2;
+
+                viewport[0] -= diffX
+                viewport[2] += diffX
+
+                viewport[1] += diffY
+                viewport[3] -= diffY
+            }
+
+            return viewport;
+        },
     },
     watch: {
         image(image) {
@@ -208,6 +227,7 @@ export default {
         },
     },
     created() {
+        this.targetSize = biigle.$require('magic-sam.sam_target_size');
         Events.$on('settings.samThrottleInterval', this.setThrottleInterval);
         Echo.getInstance().private(`user-${this.userId}`)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingAvailable', this.handleSamEmbeddingAvailable)
