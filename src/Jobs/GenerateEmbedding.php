@@ -176,49 +176,65 @@ class GenerateEmbedding
         $width = $this->image->width;
         $height = $this->image->height;
         $format = pathinfo($this->image->filename, PATHINFO_EXTENSION);
-        $tmpPath = null;
-        
-        // crop image
-        if (!$this->isFullImage()) {
+        $imgPath = $path;
+
+        $image = VipsImage::newFromFile($path);
+
+        if ($this->shouldCrop()) {
             $width = floor(abs($this->extent[0] - $this->extent[2]));
             $height = floor(abs($this->extent[1] - $this->extent[3]));
 
-            $image = VipsImage::newFromFile($path);
             $image = $image->crop($this->extent[0], $this->extent[3], $width, $height);
-            $filenameHash = $emb->getFilenameHash();
-            $tmpPath = sys_get_temp_dir() . "/tmp_{$filenameHash}.{$format}";
-            $image->writeToFile($tmpPath); // TODO: alternative ohne speichern?
         }
 
-        // resize image
-        $targetSize = config('magic_sam.sam_target_size');
-        if ($width > $height) {
-            $height = floor(($height / $width) * $targetSize);
-            $width = $targetSize;
-        } else {
-            $width = floor(($width / $height) * $targetSize);
-            $height = $targetSize;
+        if ($this->shouldResize()) {
+            if ($this->shouldCrop()) {
+                $filenameHash = $emb->getFilenameHash();
+                $imgPath = sys_get_temp_dir() . "/tmp_{$filenameHash}.{$format}";
+                $image->writeToFile($imgPath); // TODO: alternative ohne speichern?
+            }
+
+            $targetSize = config('magic_sam.sam_target_size');
+            if ($width > $height) {
+                $height = floor(($height / $width) * $targetSize);
+                $width = $targetSize;
+            } else {
+                $width = floor(($width / $height) * $targetSize);
+                $height = $targetSize;
+            }
+
+            $image = $image = VipsImage::thumbnail($imgPath, $width, [
+                'height' => $height,
+                // Don't auto rotate thumbnails because the orientation of AUV captured
+                // images is not reliable.
+                'no-rotate' => true,
+            ]);
         }
 
-        $buffer = $image->thumbnail($tmpPath, $width, [
-            'height' => $height,
-            // Don't auto rotate thumbnails because the orientation of AUV captured
-            // images is not reliable.
-            'no-rotate' => true,
-        ])->writeToBuffer(".{$format}", [
-                    'Q' => 85,
-                    'strip' => true,
-                ]);
+        $buffer = $image->writeToBuffer(".{$format}", [
+            'Q' => 85,
+            'strip' => true,
+        ]);
 
-        if ($tmpPath) {
-            unlink($tmpPath); // check if true
+        if ($this->shouldCrop()) {
+            unlink($imgPath);
         }
 
         return $buffer;
+
     }
 
-    protected function isFullImage(){
-        return $this->extent[0] == 0 && $this->extent[1] == $this->image->height && $this->extent[2] == $this->image->width && $this->extent[3] == 0;
+    protected function shouldCrop(){
+        return !($this->extent[0] == 0 && $this->extent[1] == $this->image->height && $this->extent[2] == $this->image->width && $this->extent[3] == 0);
+    }
+
+    protected function shouldResize()
+    {
+        $targetSize = config('magic_sam.sam_target_size');
+        $width = $this->extent[2] - $this->extent[0];
+        $height = $this->extent[1] - $this->extent[3];
+
+        return max($width, $height) != $targetSize;
     }
 
 }
