@@ -219,7 +219,7 @@ class GenerateEmbedding
     }
 
     protected function isFullImage(){
-        return $this->extent[0] == 0 && $this->extent[1] == 0 && $this->extent[2] == $this->image->width && $this->extent[3]->height == $this->image->height;
+        return $this->extent[0] == 0 && $this->extent[1] == $this->image->height && $this->extent[2] == $this->image->width && $this->extent[3] == 0;
     }
 
 }
