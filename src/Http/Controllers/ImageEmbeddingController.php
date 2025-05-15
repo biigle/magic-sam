@@ -60,8 +60,7 @@ class ImageEmbeddingController extends Controller
                 $embId = null;
                 $embExtent = null;
             } else {
-                $job = new GenerateEmbedding($image, $request->user(), False, $request->input('extent'));
-                $job->handle();
+                $job = GenerateEmbedding::dispatchSync($image, $request->user(), $request->input('extent'), False);
                 $embBase64 = base64_encode($job->embedding->getFile());
                 $embId = $job->embedding->id;
                 $embExtent = $job->embedding->getExtent();

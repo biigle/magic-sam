@@ -7,6 +7,7 @@ use FileCache;
 use Biigle\User;
 use Biigle\Image;
 use Illuminate\Bus\Queueable;
+use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Jcupitt\Vips\Image as VipsImage;
@@ -19,7 +20,7 @@ use Biigle\Modules\MagicSam\Events\EmbeddingAvailable;
 
 class GenerateEmbedding
 {
-    use SerializesModels, Queueable;
+    use SerializesModels, Queueable, Dispatchable;
 
     /**
      * The image to generate an embedding of.
