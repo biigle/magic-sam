@@ -69,7 +69,7 @@ class GenerateEmbedding
      * @param User $user
      * @param bool $isAsync
      */
-    public function __construct(Image $image, User $user, bool $isAsync = True, $extent = [])
+    public function __construct(Image $image, User $user, array $extent, bool $isAsync = True)
     {
         $this->image = $image;
         $this->user = $user;

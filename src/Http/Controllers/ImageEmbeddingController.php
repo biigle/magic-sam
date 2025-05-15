@@ -37,7 +37,12 @@ class ImageEmbeddingController extends Controller
         $image = Image::findOrFail($id);
         $extent = $request->input('extent');
 
+        $embBase64 = null;
+        $embId = null;
+        $embExtent = null;
+
         $emb = Embedding::getNearestEmbedding($id, $extent);
+
         if ($emb) {
             $embBase64 = base64_encode($emb->getFile());
             $embId = $emb->id;
@@ -54,11 +59,8 @@ class ImageEmbeddingController extends Controller
                 Queue::connection(config('magic_sam.request_connection'))
                     ->pushOn(
                         config('magic_sam.request_queue'),
-                        new GenerateEmbedding($image, $request->user(), true, $request->input('extent'))
+                        new GenerateEmbedding($image, $request->user(), $request->input('extent'))
                     );
-                $embBase64 = null;
-                $embId = null;
-                $embExtent = null;
             } else {
                 $job = GenerateEmbedding::dispatchSync($image, $request->user(), $request->input('extent'), False);
                 $embBase64 = base64_encode($job->embedding->getFile());
