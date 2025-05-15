@@ -191,6 +191,10 @@ class MagicSamInteraction extends PointerInteraction {
 
     }
 
+    getSketchFeatureBoundingBox() {
+        return this.sketchFeature.getGeometry().getExtent();
+    }
+
     /**
      * Update event listeners depending on the active state of the interaction.
      */
@@ -282,6 +286,7 @@ class MagicSamInteraction extends PointerInteraction {
         // This happens if the sketch feature was newly created (above) or if an annotation
         // was created from the feature (which may also remove the sketch from its source).
         if (!this.sketchSource.hasFeature(this.sketchFeature)) {
+            this.dispatchEvent({ type: 'drawstart' });
             this.sketchSource.addFeature(this.sketchFeature);
         }
     }

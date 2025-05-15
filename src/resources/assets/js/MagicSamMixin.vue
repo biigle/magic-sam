@@ -25,6 +25,7 @@ export default {
             throttleInterval: 1000,
             embeddingId: 0,
             targetSize: 1024,
+            startDrawing: false,
         };
     },
     computed: {
@@ -99,10 +100,6 @@ export default {
                 return;
             }
 
-            if (loadedImageId === this.image.id) {
-                return;
-            }
-
             let bufferedEmbedding = null;
             let usedExtent = null;
             let url = null;
@@ -145,7 +142,11 @@ export default {
                 simplifyTolerant: 0.1,
                 throttleInterval: this.throttleInterval,
             });
-            magicSamInteraction.on('drawend', this.handleNewFeature);
+            magicSamInteraction.on('drawstart', () => { this.startDrawing = true;});
+            magicSamInteraction.on('drawend', (e) => {
+                this.handleNewFeature(e);
+                this.startDrawing = false;
+            });
             magicSamInteraction.setActive(false);
             this.map.addInteraction(magicSamInteraction);
         },
@@ -163,19 +164,39 @@ export default {
             let width = viewport[2] - viewport[0];
             let height = viewport[1] - viewport[3];
 
-            if (width < this.targetSize || height < this.targetSize) {
+            if (width < this.targetSize) {
                 let diffX = (this.targetSize - width) / 2;
-                let diffY = (this.targetSize - height) / 2;
-
                 viewport[0] -= diffX
                 viewport[2] += diffX
+            }
 
+            if (height < this.targetSize) {
+                let diffY = (this.targetSize - height) / 2;
                 viewport[1] += diffY
                 viewport[3] -= diffY
             }
 
             return viewport;
         },
+        requestImageEmbedding(extent) {
+            this.startLoadingMagicSam();
+            ImageEmbeddingApi.save({ id: this.image.id }, { extent: extent })
+                .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
+                    this.handleSamEmbeddingRequestFailure
+                ).catch(handleErrorResponse);
+        },
+        requestRefinedEmbedding() {
+            if (this.startDrawing) {
+                let featureExtent = magicSamInteraction.getSketchFeatureBoundingBox();
+                if (featureExtent.length > 0) {
+                    this.invertPointsYAxis(featureExtent);
+                    featureExtent = this.validateExtent(featureExtent);
+                    this.requestImageEmbedding(featureExtent);
+                } else {
+                    Messages.info("Please select an object before requesting refined outlines.")
+                }
+            }
+        }
     },
     watch: {
         image(image) {
@@ -208,12 +229,7 @@ export default {
             }
 
             loadingImageId = this.image.id;
-            this.startLoadingMagicSam();
-
-            ImageEmbeddingApi.save({ id: this.image.id }, { extent: this.viewportExtent })
-                .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
-                    this.handleSamEmbeddingRequestFailure
-                ).catch(handleErrorResponse);
+            this.requestImageEmbedding(this.viewportExtent);
         },
         canAdd: {
             handler(canAdd) {
@@ -232,6 +248,7 @@ export default {
         Echo.getInstance().private(`user-${this.userId}`)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingAvailable', this.handleSamEmbeddingAvailable)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingFailed', this.handleSamEmbeddingFailed);
+        Keyboard.on('y', this.requestRefinedEmbedding, this.listenerSet);
     },
 };
 </script>
