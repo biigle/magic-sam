@@ -154,20 +154,34 @@ export default {
                 }
             });
 
-            // Resize images which are smaller than the target size on at least on edge
+            // Resize images that are smaller than the target size on at least on edge
             let width = viewport[2] - viewport[0];
             let height = viewport[1] - viewport[3];
 
-            if (width < this.targetSize) {
-                let diffX = (this.targetSize - width) / 2;
-                viewport[0] -= diffX
-                viewport[2] += diffX
-            }
+            if (width < this.targetSize || height < this.targetSize) {
+                if (viewport[0] == 0) {
+                    let diffX = (this.targetSize - width)
+                    viewport[2] += diffX
+                } else if (viewport[2] == this.image.width) {
+                    let diffX = (this.targetSize - width)
+                    viewport[0] -= diffX
+                } else {
+                    let diffX = (this.targetSize - width) / 2;
+                    viewport[0] -= diffX
+                    viewport[2] += diffX
+                }
 
-            if (height < this.targetSize) {
-                let diffY = (this.targetSize - height) / 2;
-                viewport[1] += diffY
-                viewport[3] -= diffY
+                if (viewport[1] == this.image.height) {
+                    let diffY = (this.targetSize - height)
+                    viewport[3] -= diffY
+                } else if (viewport[3] == 0) {
+                    let diffY = (this.targetSize - height)
+                    viewport[1] += diffY
+                } else {
+                    let diffY = (this.targetSize - height) / 2;
+                    viewport[1] += diffY
+                    viewport[3] -= diffY
+                }
             }
 
             return viewport;
