@@ -148,7 +148,7 @@ class GenerateEmbedding
     {
         return FileCache::getOnce($this->image, function ($file, $path) use ($emb, $embeddingFilename, $destPath) {
             // (crop and) resize image
-            $image = $this->processImage($emb, $path);
+            $image = $this->processImage($path);
             // Contact the pyworker to generate the embedding
             $response = Http::withOptions([
                 'sink' => $destPath // stream response body to disk
@@ -171,14 +171,13 @@ class GenerateEmbedding
         });
     }
 
-    protected function processImage($emb, $path)
+    protected function processImage($path)
     {
         $width = $this->image->width;
         $height = $this->image->height;
         $format = pathinfo($this->image->filename, PATHINFO_EXTENSION);
-        $imgPath = $path;
 
-        $image = VipsImage::newFromFile($path);
+        $image = VipsImage::newFromFile($path, ['access' => 'sequential']);
 
         if ($this->shouldCrop()) {
             $width = floor(abs($this->extent[0] - $this->extent[2]));
@@ -188,12 +187,6 @@ class GenerateEmbedding
         }
 
         if ($this->shouldResize()) {
-            if ($this->shouldCrop()) {
-                $filenameHash = $emb->getFilenameHash();
-                $imgPath = sys_get_temp_dir() . "/tmp_{$filenameHash}.{$format}";
-                $image->writeToFile($imgPath); // TODO: alternative ohne speichern?
-            }
-
             $targetSize = config('magic_sam.sam_target_size');
             if ($width > $height) {
                 $height = floor(($height / $width) * $targetSize);
@@ -203,7 +196,7 @@ class GenerateEmbedding
                 $height = $targetSize;
             }
 
-            $image = $image = VipsImage::thumbnail($imgPath, $width, [
+            $image = $image->thumbnail_image($width, [
                 'height' => $height,
                 // Don't auto rotate thumbnails because the orientation of AUV captured
                 // images is not reliable.
@@ -211,20 +204,14 @@ class GenerateEmbedding
             ]);
         }
 
-        $buffer = $image->writeToBuffer(".{$format}", [
+        return $image->writeToBuffer(".{$format}", [
             'Q' => 85,
             'strip' => true,
         ]);
-
-        if ($this->shouldCrop()) {
-            unlink($imgPath);
-        }
-
-        return $buffer;
-
     }
 
-    protected function shouldCrop(){
+    protected function shouldCrop()
+    {
         return !($this->extent[0] == 0 && $this->extent[1] == $this->image->height && $this->extent[2] == $this->image->width && $this->extent[3] == 0);
     }
 
