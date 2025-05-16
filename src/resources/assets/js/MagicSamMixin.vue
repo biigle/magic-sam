@@ -42,12 +42,6 @@ export default {
 
             return 'Draw a polygon using the magic SAM tool 𝗭';
         },
-        viewportExtent() {
-            let viewport = [...this.viewExtent];
-            // invert y-axis to start from low to high
-            this.invertPointsYAxis(viewport);
-            return this.validateExtent(viewport);
-        },
     },
     methods: {
         setThrottleInterval(interval) {
@@ -196,6 +190,11 @@ export default {
                     Messages.info("Please select an object before requesting refined outlines.")
                 }
             }
+        },
+        computeEmbeddingExtent() {
+            let extent = this.map.getView().calculateExtent(this.map.getSize());
+            this.invertPointsYAxis(extent);
+            return this.validateExtent(extent);
         }
     },
     watch: {
@@ -229,7 +228,7 @@ export default {
             }
 
             loadingImageId = this.image.id;
-            this.requestImageEmbedding(this.viewportExtent);
+            this.requestImageEmbedding(this.computeEmbeddingExtent());
         },
         canAdd: {
             handler(canAdd) {
