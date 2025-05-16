@@ -137,10 +137,7 @@ export default {
                 throttleInterval: this.throttleInterval,
             });
             magicSamInteraction.on('drawstart', () => { this.startDrawing = true;});
-            magicSamInteraction.on('drawend', (e) => {
-                this.handleNewFeature(e);
-                this.startDrawing = false;
-            });
+            magicSamInteraction.on('drawend', this.handleNewFeature);
             magicSamInteraction.setActive(false);
             this.map.addInteraction(magicSamInteraction);
         },
@@ -225,6 +222,7 @@ export default {
         isMagicSamming(active) {
             if (!active) {
                 magicSamInteraction.setActive(false);
+                this.startDrawing = false;
                 return;
             }
 
