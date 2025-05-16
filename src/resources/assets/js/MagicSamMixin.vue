@@ -246,8 +246,10 @@ export default {
             handler(canAdd) {
                 if (canAdd) {
                     Keyboard.on('z', this.toggleMagicSam, 0, this.listenerSet);
+                    Keyboard.on('y', this.requestRefinedEmbedding, 0, this.listenerSet);
                 } else {
                     Keyboard.off('z', this.toggleMagicSam, 0, this.listenerSet);
+                    Keyboard.off('y', this.requestRefinedEmbedding, 0, this.listenerSet);
                 }
             },
             immediate: true,
@@ -259,7 +261,6 @@ export default {
         Echo.getInstance().private(`user-${this.userId}`)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingAvailable', this.handleSamEmbeddingAvailable)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingFailed', this.handleSamEmbeddingFailed);
-        Keyboard.on('y', this.requestRefinedEmbedding, this.listenerSet);
     },
 };
 </script>
