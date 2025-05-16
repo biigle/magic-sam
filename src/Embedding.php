@@ -103,8 +103,8 @@ class Embedding extends Model
                 $query->where('image_id', $imgId)
                     ->whereRaw("ABS(x2 - x) > ? AND ABS(x2 - x) < ?", [$width, $maxWidth])
                     ->whereRaw("ABS(y2 - y) > ? AND ABS(y2 - y) < ?", [$height, $maxHeight])
-                    ->whereRaw("? - x < ?", [$extent[0], $maxDistX])
-                    ->whereRaw("y - ? < ?", [$extent[1], $maxDistY]);
+                    ->whereRaw("? - x < ? AND ? > x", [$extent[0], $maxDistX, $extent[0]])
+                    ->whereRaw("y - ? < ? AND y > ?", [$extent[1], $maxDistY, $maxDistY]);
             })
             ->first(); // TODO: Look for emb whose center is nearest to the current embedding's center
     }
