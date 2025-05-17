@@ -82,7 +82,15 @@ class Embedding extends Model
         return EmbeddingFactory::new();
     }
 
-    public static function getNearestEmbedding($imgId, $extent, $embId = 0)
+    /**
+     * Query closest embedding that would cover current extent
+     *
+     * @param mixed $imgId Image id
+     * @param mixed $extent Viewport's extnet that should be covered by an embedding
+     * @param mixed $excludedEmbeddingId Embedding id that should be excluded when embedding is refined
+     * @return Embedding|null
+     */
+    public static function getNearestEmbedding($imgId, $extent, $excludedEmbeddingId)
     {
         $sizeFactor = config('magic_sam.image_section_max_size_factor');
         $width = abs($extent[2] - $extent[0]);
@@ -95,7 +103,7 @@ class Embedding extends Model
         $maxDistY = $extent[1] * $sizeFactor;
 
         return self::where('image_id', $imgId)
-            ->when($embId, fn($query) => $query->where('id', '!=', $embId)) // exclude current embedding
+            ->when($excludedEmbeddingId, fn($query) => $query->where('id', '!=', $excludedEmbeddingId)) // exclude current embedding
             ->where(function ($query) use ($extent) {
                 $query->whereRaw("x = ? AND y = ? AND x2 = ? AND y2 = ?", $extent);
             })
