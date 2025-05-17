@@ -185,7 +185,6 @@ export default {
         },
         requestImageEmbedding(body) {
             this.startLoadingMagicSam();
-            console.log(body.extent);
             ImageEmbeddingApi.save({ id: this.image.id }, body)
                 .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
                     this.handleSamEmbeddingRequestFailure
