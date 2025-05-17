@@ -36,6 +36,13 @@ class EmbeddingAvailable implements ShouldBroadcastNow
     public $extent;
 
     /**
+     * Id of the embedding
+     *
+     * @var int
+     */
+    public $embeddingId;
+
+    /**
      * The name of the queue the job should be sent to.
      *
      * @var string|null
@@ -56,11 +63,12 @@ class EmbeddingAvailable implements ShouldBroadcastNow
      * @param User $user
      * @return void
      */
-    public function __construct($filename, User $user, array $extent)
+    public function __construct(User $user, int $embeddingId, string $filename, array $extent)
     {
         $this->filename = $filename;
         $this->user = $user;
         $this->extent = $extent;
+        $this->embeddingId = $embeddingId;
     }
 
     /**
@@ -89,6 +97,7 @@ class EmbeddingAvailable implements ShouldBroadcastNow
         }
 
         return [
+            'id' => $this->embeddingId,
             'url' => $url,
             'extent' => $this->extent,
         ];
