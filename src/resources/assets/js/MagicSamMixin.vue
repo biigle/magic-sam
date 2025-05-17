@@ -73,7 +73,6 @@ export default {
             }
 
             if (responseBody.embedding !== null) {
-                this.embeddingId = responseBody.id
                 this.handleSamEmbeddingAvailable(responseBody);
             } else {
                 // Wait for the Websockets event.
@@ -105,6 +104,7 @@ export default {
                 url = response.url
             }
 
+            this.embeddingId = response.id
             usedExtent = response.extent;
             this.invertPointsYAxis(usedExtent);
 
@@ -183,9 +183,10 @@ export default {
 
             return viewport;
         },
-        requestImageEmbedding(extent) {
+        requestImageEmbedding(body) {
             this.startLoadingMagicSam();
-            ImageEmbeddingApi.save({ id: this.image.id }, { extent: extent })
+            console.log(body.extent);
+            ImageEmbeddingApi.save({ id: this.image.id }, body)
                 .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
                     this.handleSamEmbeddingRequestFailure
                 ).catch(handleErrorResponse);
@@ -195,8 +196,8 @@ export default {
                 let featureExtent = magicSamInteraction.getSketchFeatureBoundingBox();
                 if (featureExtent.length > 0) {
                     this.invertPointsYAxis(featureExtent);
-                    featureExtent = this.validateExtent(featureExtent);
-                    this.requestImageEmbedding(featureExtent);
+                    featureExtent = this.validateExtent(featureExtent, this.embeddingId);
+                    this.requestImageEmbedding({ extent: featureExtent, exclude_embedding_id: this.embeddingId });
                 } else {
                     Messages.info("Please select an object before requesting refined outlines.")
                 }
@@ -240,7 +241,7 @@ export default {
             }
 
             loadingImageId = this.image.id;
-            this.requestImageEmbedding(this.computeEmbeddingExtent());
+            this.requestImageEmbedding({ extent: this.computeEmbeddingExtent() });
         },
         canAdd: {
             handler(canAdd) {

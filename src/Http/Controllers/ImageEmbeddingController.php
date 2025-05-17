@@ -36,12 +36,13 @@ class ImageEmbeddingController extends Controller
     {
         $image = Image::findOrFail($id);
         $extent = $request->input('extent');
+        $excludedId = $request->input('exclude_embedding_id', 0);
 
         $embBase64 = null;
         $embId = null;
         $embExtent = null;
 
-        $emb = Embedding::getNearestEmbedding($id, $extent);
+        $emb = Embedding::getNearestEmbedding($id, $extent, $excludedId);
 
         if ($emb) {
             $embBase64 = base64_encode($emb->getFile());

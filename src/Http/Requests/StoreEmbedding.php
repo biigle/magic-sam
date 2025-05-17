@@ -29,6 +29,7 @@ class StoreEmbedding extends FormRequest
         return [
             'extent' => 'required|array|size:4',
             'extent.*' => 'numeric|gte:0',
+            'exclude_embedding_id' => 'nullable|int|gt:0'
         ];
     }
 
