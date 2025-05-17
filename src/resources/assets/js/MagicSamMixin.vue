@@ -145,9 +145,9 @@ export default {
             // Set viewport values on 0 if the viewport corners are located outside the image
             let viewport = extent.map((c, i) => {
                 if (i % 2 == 0) {
-                    return c < 0 ? 0 : c > this.image.width ? this.image.width : c
+                    return Math.min(Math.max(0, c), this.image.width);
                 } else {
-                    return c < 0 ? 0 : c > this.image.height ? this.image.height : c
+                    return Math.min(Math.max(0, c), this.image.height);
                 }
             });
 
