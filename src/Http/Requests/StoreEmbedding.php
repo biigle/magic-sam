@@ -15,8 +15,8 @@ class StoreEmbedding extends FormRequest
      */
     public function authorize()
     {
-        $image = Image::find($this->route('id'));
-        return $this->user()->can('access', $image);
+        $this->image = Image::find($this->route('id'));
+        return $this->user()->can('access', $this->image);
     }
 
     /**
@@ -27,9 +27,14 @@ class StoreEmbedding extends FormRequest
     public function rules()
     {
         return [
-            'extent' => 'required|array|size:4',
+            'extent' => 'required|list|size:4',
             'extent.*' => 'numeric|gte:0',
-            'exclude_embedding_id' => 'nullable|int|gt:0'
+            'excludeEmbeddingId' => 'nullable|int|gt:0',
+            'tiles' => 'nullable|array',
+            'tiles.*' => 'array|size:4',
+            'tiles.*.*' => 'int|gte:0',
+            'tiledImageExtent' => 'nullable|list|size:4',
+            'tiledImageExtent.*' => 'numeric|gte:0',
         ];
     }
 
@@ -51,6 +56,20 @@ class StoreEmbedding extends FormRequest
             if ($width < $targetSize || $height < $targetSize) {
                 $validator->errors()->add('extent', "The image's width and height need to be greater or equal than {$targetSize} pixel.");
             }
+
+            if ($this->image->tiled) {
+                $tiles = $this->input('tiles', []);
+                $tiledImageExtent = $this->input('tiles', []);
+
+                if (!$tiles) {
+                    $validator->errors()->add('tile', 'The tiled image needs to provide the tile groups, zoom level, column and row indices.');
+                }
+
+                if (!$tiledImageExtent) {
+                    $validator->errors()->add('tiledImageExtent', 'The tiled image needs to provide the extent of the tiled area');
+                }
+            }
+
         });
     }
 }
