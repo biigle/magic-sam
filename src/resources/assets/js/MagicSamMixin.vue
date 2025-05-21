@@ -7,6 +7,7 @@ import {Keyboard} from './import';
 import {Messages} from './import';
 import {Styles} from './import';
 import {Events} from './import';
+import { computeTileGroup, computeTotalTilesIndex } from './utils';
 
 let magicSamInteraction;
 let loadedImageId;
@@ -196,16 +197,48 @@ export default {
                 if (featureExtent.length > 0) {
                     this.invertPointsYAxis(featureExtent);
                     featureExtent = this.validateExtent(featureExtent, this.embeddingId);
-                    this.requestImageEmbedding({ extent: featureExtent, exclude_embedding_id: this.embeddingId });
+                    this.requestImageEmbedding({ extent: featureExtent, excludeEmbeddingId: this.embeddingId });
                 } else {
                     Messages.info("Please select an object before requesting refined outlines.")
                 }
             }
         },
         computeEmbeddingExtent() {
-            let extent = this.map.getView().calculateExtent(this.map.getSize());
+            let view = this.map.getView();
+            let extent = view.calculateExtent(this.map.getSize());
             this.invertPointsYAxis(extent);
             return this.validateExtent(extent);
+        },
+        getTileDescriptions() {
+            let view = this.map.getView();
+            let zoom = Math.round(view.getZoom());
+            let extent = this.computeEmbeddingExtent();
+            this.invertPointsYAxis(extent);
+
+            let source = this.tiledImageLayer.getSource();
+            let tileGrid = source.getTileGridForProjection(view.getProjection());
+            let tileRange = tileGrid.getTileRangeForExtentAndZ(extent, zoom);
+
+            let ll = tileGrid.getTileCoordForCoordAndZ([extent[0],extent[1]], zoom);
+            let ur = tileGrid.getTileCoordForCoordAndZ([extent[2],extent[3]], zoom);
+
+            let llCoords = tileGrid.getTileCoordExtent(ll);
+            let urCoords = tileGrid.getTileCoordExtent(ur);
+
+            let tiledImageExtent = [llCoords[0], llCoords[1], urCoords[2], urCoords[3]];
+            this.invertPointsYAxis(tiledImageExtent);
+
+            let totalTilesIndex = computeTotalTilesIndex(this.image.width, this.image.height);
+            let tiles = []
+
+            for (let x = tileRange.minX; x <= tileRange.maxX; x++) {
+                for (let y = tileRange.minY; y <= tileRange.maxY; y++) {
+                    let group = computeTileGroup(totalTilesIndex, zoom, x, y)
+                    tiles.push({ 'group': group, 'zoom': zoom, 'x': x, 'y': y });
+                }
+            }
+
+            return [tiles, tiledImageExtent];
         }
     },
     watch: {
@@ -240,13 +273,26 @@ export default {
             }
 
             loadingImageId = this.image.id;
-            this.requestImageEmbedding({ extent: this.computeEmbeddingExtent() });
+
+            let extent = this.computeEmbeddingExtent();
+            let body = null;
+
+            if(this.image.tiled) {
+                let tilesDescription = this.getTileDescriptions();
+                body = { extent: extent, tiles: tilesDescription[0], tiledImageExtent: tilesDescription[1]};
+            } else {
+                body = { extent: extent };
+            }
+
+            this.requestImageEmbedding(body);
         },
         canAdd: {
             handler(canAdd) {
                 if (canAdd) {
                     Keyboard.on('z', this.toggleMagicSam, 0, this.listenerSet);
-                    Keyboard.on('y', this.requestRefinedEmbedding, 0, this.listenerSet);
+                    if (!this.image.tiled) {
+                        Keyboard.on('y', this.requestRefinedEmbedding, 0, this.listenerSet);
+                    }
                 } else {
                     Keyboard.off('z', this.toggleMagicSam, 0, this.listenerSet);
                     Keyboard.off('y', this.requestRefinedEmbedding, 0, this.listenerSet);
