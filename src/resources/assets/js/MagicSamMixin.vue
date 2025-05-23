@@ -206,7 +206,7 @@ export default {
         },
         requestRefinedEmbedding() {
             if (this.startDrawing) {
-                let featureExtent = magicSamInteraction.getSketchFeatureBoundingBox();
+                let featureExtent = [...magicSamInteraction.getSketchFeatureBoundingBox()];
                 if (featureExtent.length > 0) {
                     this.savePrevEmbeddingData();
                     this.focusModus = true;
