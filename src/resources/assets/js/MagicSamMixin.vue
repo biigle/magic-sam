@@ -8,6 +8,10 @@ import {Messages} from './import';
 import {Styles} from './import';
 import {Events} from './import';
 import { computeTileGroup, computeTotalTilesIndex } from './utils';
+import Polygon from '@biigle/ol/geom/Polygon.js';
+import Feature from '@biigle/ol/Feature';
+import VectorLayer from '@biigle/ol/layer/Vector';
+import VectorSource from '@biigle/ol/source/Vector';
 
 let magicSamInteraction;
 let loadedImageId;
@@ -27,6 +31,8 @@ export default {
             embeddingId: 0,
             targetSize: 1024,
             startDrawing: false,
+            focusLayer: null,
+            focusModus: false,
         };
     },
     computed: {
@@ -106,11 +112,16 @@ export default {
             }
 
             this.embeddingId = response.id
-            usedExtent = response.extent;
+            usedExtent = [...response.extent];
             this.invertPointsYAxis(usedExtent);
 
             loadedImageId = this.image.id;
             magicSamInteraction.updateEmbedding(url, bufferedEmbedding, usedExtent)
+                .then(() => {
+                    if (this.image.tiled || this.focusModus) {
+                        this.drawFocusBox(response.extent)
+                    }
+                })
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
                     // The user could have disabled the interaction while loading.
@@ -186,7 +197,7 @@ export default {
         },
         requestImageEmbedding(body) {
             this.startLoadingMagicSam();
-            ImageEmbeddingApi.save({ id: this.image.id }, body)
+            return ImageEmbeddingApi.save({ id: this.image.id }, body)
                 .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
                     this.handleSamEmbeddingRequestFailure
                 ).catch(handleErrorResponse);
@@ -195,8 +206,9 @@ export default {
             if (this.startDrawing) {
                 let featureExtent = magicSamInteraction.getSketchFeatureBoundingBox();
                 if (featureExtent.length > 0) {
+                    this.focusModus = true;
                     this.invertPointsYAxis(featureExtent);
-                    featureExtent = this.validateExtent(featureExtent, this.embeddingId);
+                    featureExtent = this.validateExtent(featureExtent);
                     this.requestImageEmbedding({ extent: featureExtent, excludeEmbeddingId: this.embeddingId });
                 } else {
                     Messages.info("Please select an object before requesting refined outlines.")
@@ -239,6 +251,40 @@ export default {
             }
 
             return [tiles, tiledImageExtent];
+        },
+        drawFocusBox(extent) {
+            let drawExtent = [...extent]
+            this.invertPointsYAxis(drawExtent);
+
+            let outer = [
+                [this.extent[0], this.extent[3]],
+                [this.extent[0], this.extent[1]],
+                [this.extent[2], this.extent[1]],
+                [this.extent[2], this.extent[3]],
+                [this.extent[0], this.extent[3]]
+            ];
+
+            // viewport coordinates
+            let inner = [
+                [drawExtent[0], drawExtent[1]],
+                [drawExtent[2], drawExtent[1]],
+                [drawExtent[2], drawExtent[3]],
+                [drawExtent[0], drawExtent[3]],
+                [drawExtent[0], drawExtent[1]],
+            ];
+
+            let feature = new Feature(new Polygon([outer, inner]));
+            feature.setStyle(Styles.focus);
+
+            let source = this.focusLayer.getSource();
+            source.addFeature(feature);
+
+        },
+        usePreviousEmbedding() {
+            if (this.focusModus) {
+                this.focusModus = false;
+            }
+            // TODO: use previous embedding
         }
     },
     watch: {
@@ -256,6 +302,7 @@ export default {
             if (!active) {
                 magicSamInteraction.setActive(false);
                 this.startDrawing = false;
+                this.focusLayer.getSource().clear();
                 return;
             }
 
@@ -290,15 +337,22 @@ export default {
             handler(canAdd) {
                 if (canAdd) {
                     Keyboard.on('z', this.toggleMagicSam, 0, this.listenerSet);
+                    Keyboard.on('x', this.usePreviousEmbedding, 0, this.listenerSet);
                     if (!this.image.tiled) {
                         Keyboard.on('y', this.requestRefinedEmbedding, 0, this.listenerSet);
                     }
                 } else {
                     Keyboard.off('z', this.toggleMagicSam, 0, this.listenerSet);
                     Keyboard.off('y', this.requestRefinedEmbedding, 0, this.listenerSet);
+                    Keyboard.off('x', this.usePreviousEmbedding, 0, this.listenerSet);
                 }
             },
             immediate: true,
+        },
+        focusModus(focus) {
+            if (!focus){
+                this.focusLayer.getSource().clear();
+            }
         },
     },
     created() {
@@ -308,5 +362,11 @@ export default {
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingAvailable', this.handleSamEmbeddingAvailable)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingFailed', this.handleSamEmbeddingFailed);
     },
+    mounted() {
+        this.focusLayer = new VectorLayer({
+            source: new VectorSource(),
+            map: this.map,
+        });
+    }
 };
 </script>
