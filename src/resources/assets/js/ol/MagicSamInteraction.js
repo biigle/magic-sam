@@ -94,7 +94,7 @@ class MagicSamInteraction extends PointerInteraction {
         return this.throttleInterval;
     }
 
-    updateEmbedding(url, embedding, extent) {
+    updateEmbedding(url, embedding, embTensor, extent) {
         let width = Math.floor(Math.abs(extent[2] - extent[0]));
         let height = Math.floor(Math.abs(extent[3] - extent[1]));
 
@@ -117,6 +117,12 @@ class MagicSamInteraction extends PointerInteraction {
                 .then(() => {
                     let npArray = npy.parse(embedding);
                     this.embedding = new Tensor("float32", npArray.data, npArray.shape);
+                    this._runModelWarmup();
+                });
+        } else if (embTensor) {
+            promise = Vue.Promise.all([this.initPromise])
+                .then(() => {
+                    this.embedding = embTensor;
                     this._runModelWarmup();
                 });
         } else {
@@ -290,6 +296,10 @@ class MagicSamInteraction extends PointerInteraction {
             this.sketchSource.clear();
             this.sketchSource.addFeature(this.sketchFeature);
         }
+    }
+
+    getCurrentEmbeddingTensor(){
+        return this.embedding;
     }
 
 }
