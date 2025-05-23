@@ -285,6 +285,7 @@ export default {
             feature.setStyle(Styles.focus);
 
             let source = this.focusLayer.getSource();
+            source.clear();
             source.addFeature(feature);
 
         },
