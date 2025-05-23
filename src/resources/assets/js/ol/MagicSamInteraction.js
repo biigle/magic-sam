@@ -287,6 +287,7 @@ class MagicSamInteraction extends PointerInteraction {
         // was created from the feature (which may also remove the sketch from its source).
         if (!this.sketchSource.hasFeature(this.sketchFeature)) {
             this.dispatchEvent({ type: 'drawstart' });
+            this.sketchSource.clear();
             this.sketchSource.addFeature(this.sketchFeature);
         }
     }
