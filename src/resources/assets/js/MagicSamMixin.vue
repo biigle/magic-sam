@@ -33,8 +33,8 @@ export default {
             startDrawing: false,
             focusLayer: null,
             focusModus: false,
-            prevEmbeddingTensor: null,
-            prevExtent: []
+            prevExtent: [],
+            prevTensor: [],
         };
     },
     computed: {
@@ -205,11 +205,15 @@ export default {
                 ).catch(handleErrorResponse);
         },
         requestRefinedEmbedding() {
+            if (this.focusModus) {
+                return;
+            }
+
             if (this.startDrawing) {
                 let featureExtent = [...magicSamInteraction.getSketchFeatureBoundingBox()];
                 if (featureExtent.length > 0) {
-                    this.savePrevEmbeddingData();
                     this.focusModus = true;
+                    this.savePrevEmbeddingData();
                     this.invertPointsYAxis(featureExtent);
                     featureExtent = this.validateExtent(featureExtent);
                     this.requestImageEmbedding({ extent: featureExtent, excludeEmbeddingId: this.embeddingId });
@@ -219,9 +223,9 @@ export default {
             }
         },
         savePrevEmbeddingData() {
-            this.prevEmbeddingTensor = magicSamInteraction.getCurrentEmbeddingTensor();
             this.prevExtent = this.computeEmbeddingExtent();
             this.invertPointsYAxis(this.prevExtent);
+            this.prevTensor = magicSamInteraction.getCurrentEmbeddingTensor();
         },
         computeEmbeddingExtent() {
             let view = this.map.getView();
@@ -292,29 +296,30 @@ export default {
         usePreviousEmbedding() {
             if (this.focusModus) {
                 this.focusModus = false;
-            }
 
-            if (this.prevEmbeddingTensor) {
-                this.startLoadingMagicSam();
-                magicSamInteraction.updateEmbedding(null, null, this.prevEmbeddingTensor, this.prevExtent)
-                    .then(() => {
-                        this.prevEmbeddingTensor = null;
-                        this.prevExtent = [];
-                    })
-                    .then(this.finishLoadingMagicSam)
-                    .then(() => {
-                        // The user could have disabled the interaction while loading.
-                        if (this.isMagicSamming) {
-                            magicSamInteraction.setActive(true);
-                        }
-                    });
+                if (this.prevTensor) {
+                    this.startLoadingMagicSam();
+                    magicSamInteraction.updateEmbedding(null, null, this.prevTensor, this.prevExtent)
+                        .then(() => {
+                            this.prevTensor = null;
+                            this.prevExtent = [];
+                        })
+                        .then(this.finishLoadingMagicSam)
+                        .then(() => {
+                            // The user could have disabled the interaction while loading.
+                            if (this.isMagicSamming) {
+                                magicSamInteraction.setActive(true);
+                            }
+                        });
+                }
             }
         },
         clearEmbeddingData() {
+            this.focusModus = false;
             this.startDrawing = false;
             this.focusLayer.getSource().clear();
-            this.prevEmbeddingTensor = null;
             this.prevExtent = [];
+            this.prevTensor = null;
         }
     },
     watch: {
@@ -379,7 +384,7 @@ export default {
             immediate: true,
         },
         focusModus(focus) {
-            if (!focus){
+            if (!focus) {
                 this.focusLayer.getSource().clear();
             }
         },
