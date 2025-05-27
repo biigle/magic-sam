@@ -156,13 +156,10 @@ export default {
             this.map.addInteraction(magicSamInteraction);
         },
         validateExtent(extent) {
-            // Set viewport values on 0 if the viewport corners are located outside the image
+            // Set viewport values on 0 or max height or width if the viewport corners are located outside the image
             let viewport = extent.map((c, i) => {
-                if (i % 2 == 0) {
-                    return Math.min(Math.max(0, c), this.image.width);
-                } else {
-                    return Math.min(Math.max(0, c), this.image.height);
-                }
+                let size = i % 2 == 0 ? this.image.width : this.image.height;
+                return Math.floor(Math.min(Math.max(0, c), size));
             });
 
             // Resize images that are smaller than the target size on at least on edge
