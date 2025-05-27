@@ -235,9 +235,10 @@ export default {
         },
         getTileDescriptions() {
             let view = this.map.getView();
-            let zoom = Math.round(view.getZoom());
+
             let extent = this.computeEmbeddingExtent();
             this.invertPointsYAxis(extent);
+            let zoom = this.computeZoom(view, extent);
 
             let source = this.tiledImageLayer.getSource();
             let tileGrid = source.getTileGridForProjection(view.getProjection());
@@ -263,6 +264,22 @@ export default {
             }
 
             return [tiles, tiledImageExtent];
+        },
+        computeZoom(view, extent) {
+            let zoom = -1;
+            // Prevent missing tile coordinates by using zoom of computed extent instead of current view
+            // if viewport is smaller than 1024x1024
+            if (this.viewExtent[0] > extent[0]
+                && this.viewExtent[1] > extent[1]
+                && this.viewExtent[2] < extent[2]
+                && this.viewExtent[3] < extent[3]) {
+                zoom = this.map.getView()
+                    .getZoomForResolution(this.map.getView()
+                        .getResolutionForExtent(extent, this.map.getSize()))
+            } else {
+                zoom = view.getZoom()
+            }
+            return Math.round(zoom);
         },
         drawFocusBox(extent) {
             let drawExtent = [...extent]
