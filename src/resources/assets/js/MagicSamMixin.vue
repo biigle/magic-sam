@@ -91,7 +91,11 @@ export default {
         handleSamEmbeddingRequestFailure(response) {
             this.resetInteractionMode();
             this.finishLoadingMagicSam();
-            handleErrorResponse(response);
+            if (response.status == 429) {
+                Messages.warning("A SAM job is still running. Please try again later.")
+            } else {
+                handleErrorResponse(response);
+            }
         },
         handleSamEmbeddingAvailable(response) {
             if (!this.loadingMagicSam) {

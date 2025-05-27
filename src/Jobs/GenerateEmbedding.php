@@ -102,8 +102,11 @@ class GenerateEmbedding
       */
     public function handle()
     {
+        $jobCount = config('magic_sam.job_count_cache_key');
+        $userJobCount = self::getRateLimitCacheKey($this->user);
+
         if ($this->isAsync) {
-            Cache::increment(config('magic_sam.job_count_cache_key'));
+            Cache::increment($jobCount);
         }
 
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
@@ -140,30 +143,44 @@ class GenerateEmbedding
             });
 
             if ($this->isAsync) {
-                $this->decrementJobCacheCount();
+                $this->decrementCacheCount($jobCount);
+                $this->decrementCacheCount($userJobCount);
                 EmbeddingAvailable::dispatch($this->user, $emb->id, "{$prefix}/{$embFilename}", $this->extent);
             }
         } catch (Exception $e) {
             if ($this->isAsync) {
-                $this->decrementJobCacheCount();
+                $this->decrementCacheCount($jobCount);
+                $this->decrementCacheCount($userJobCount);
                 EmbeddingFailed::dispatch($this->user);
             }
             throw $e;
         }
     }
 
+    /* Return the cache key to store the number of concurrent jobs for each user.
+     *
+     * @param User $user
+     *
+     * @return string
+     */
+    public static function getRateLimitCacheKey(User $user)
+    {
+        return "embedding-generation-{$user->id}";
+    }
+
     /**
-     * Decrement job count in cache
+     * Decrement cache count
+     *
+     * @param int $cacheKey
      * 
      * @return void
      */
-    protected function decrementJobCacheCount()
+    protected function decrementCacheCount($cacheKey)
     {
-        $job_count = config('magic_sam.job_count_cache_key');
-        if (Cache::get($job_count) > 0) {
-            Cache::decrement($job_count);
+        if (Cache::get($cacheKey) > 0) {
+            Cache::decrement($cacheKey);
         } else {
-            Cache::put($job_count, 0);
+            Cache::put($cacheKey, 0);
         }
     }
 

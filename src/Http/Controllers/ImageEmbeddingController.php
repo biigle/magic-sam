@@ -10,6 +10,7 @@ use Biigle\Modules\MagicSam\Embedding;
 use Biigle\Http\Controllers\Api\Controller;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
 use Biigle\Modules\MagicSam\Http\Requests\StoreEmbedding;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 class ImageEmbeddingController extends Controller
 {
@@ -34,6 +35,15 @@ class ImageEmbeddingController extends Controller
      */
     public function store(StoreEmbedding $request, $id)
     {
+        $userCacheKey = GenerateEmbedding::getRateLimitCacheKey($request->user());
+        $jobCount = Cache::get($userCacheKey, 0);
+
+        if ($jobCount >= 1) {
+            throw new TooManyRequestsHttpException("You already have {$jobCount} SAM jobs running. Please wait for one to finish until you submit a new one.");
+        }
+
+        Cache::increment($userCacheKey);
+
         $image = Image::findOrFail($id);
 
         $extent = $request->input('extent');
@@ -49,6 +59,7 @@ class ImageEmbeddingController extends Controller
             $embBase64 = base64_encode($emb->getFile());
             $embId = $emb->id;
             $embExtent = $emb->getExtent();
+            Cache::decrement($userCacheKey);
         } else {
             $job_count = config('magic_sam.job_count_cache_key');
             if (!Cache::has($job_count)) {
@@ -69,6 +80,7 @@ class ImageEmbeddingController extends Controller
                 $embBase64 = base64_encode($job->embedding->getFile());
                 $embId = $job->embedding->id;
                 $embExtent = $job->embedding->getExtent();
+                Cache::decrement($userCacheKey);
             }
         }
 
