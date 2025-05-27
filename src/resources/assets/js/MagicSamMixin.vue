@@ -111,8 +111,7 @@ export default {
             let url = null;
 
             if (response.embedding) {
-                // Decode and write to arrayBuffer
-                bufferedEmbedding = Buffer.from(response.embedding, 'base64').buffer
+                bufferedEmbedding = response.embedding;
             } else {
                 url = response.url
             }
@@ -200,8 +199,19 @@ export default {
         },
         requestImageEmbedding(body) {
             this.startLoadingMagicSam();
+
             return ImageEmbeddingApi.save({ id: this.image.id }, body)
-                .then((res) => this.handleSamEmbeddingRequestSuccess(res.body),
+                .then((res) => {
+                    if(this.image.tiled){
+                        this.handleSamEmbeddingRequestSuccess({embedding: null});
+                    } else {
+                        let data = JSON.parse(res.headers.map['x-meta-info'][0]);
+                        res.body.arrayBuffer().then((buffer) => {
+                            data.embedding = buffer;
+                            this.handleSamEmbeddingRequestSuccess(data);
+                    });
+                    }
+                },
                     this.handleSamEmbeddingRequestFailure
                 ).catch(handleErrorResponse);
         },

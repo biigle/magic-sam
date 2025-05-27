@@ -5,4 +5,10 @@
  *
  * @type {Vue.resource}
  */
-export default Vue.resource('api/v1/images{/id}/sam-embedding');
+export default Vue.resource('api/v1/images{/id}/sam-embedding', {}, {
+    save: {
+        url: 'api/v1/images{/id}/sam-embedding',
+        method: 'post',
+        responseType: 'blob'
+    }
+});
