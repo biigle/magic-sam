@@ -112,7 +112,7 @@ class Embedding extends Model
                     ->whereRaw("ABS(x2 - x) > ? AND ABS(x2 - x) < ?", [$width, $maxWidth])
                     ->whereRaw("ABS(y2 - y) > ? AND ABS(y2 - y) < ?", [$height, $maxHeight])
                     ->whereRaw("? - x < ? AND ? > x", [$extent[0], $maxDistX, $extent[0]])
-                    ->whereRaw("y - ? < ? AND y > ?", [$extent[1], $maxDistY, $maxDistY]);
+                    ->whereRaw("y - ? < ? AND y > ?", [$extent[1], $maxDistY, $extent[1]]);
             })
             ->first(); // TODO: Look for emb whose center is nearest to the current embedding's center
     }
