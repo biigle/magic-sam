@@ -81,7 +81,7 @@ export default {
                 return;
             }
 
-            if (responseBody.embedding !== null) {
+            if (responseBody !== null) {
                 this.handleSamEmbeddingAvailable(responseBody);
             } else {
                 // Wait for the Websockets event.
@@ -202,14 +202,14 @@ export default {
 
             return ImageEmbeddingApi.save({ id: this.image.id }, body)
                 .then((res) => {
-                    if(this.image.tiled){
-                        this.handleSamEmbeddingRequestSuccess({embedding: null});
-                    } else {
-                        let data = JSON.parse(res.headers.map['x-meta-info'][0]);
+                    if (res.body) {
+                        let id = parseInt(res.headers.map['x-embedding-id'][0]);
+                        let extent = JSON.parse(res.headers.map['x-embedding-extent']);
                         res.body.arrayBuffer().then((buffer) => {
-                            data.embedding = buffer;
-                            this.handleSamEmbeddingRequestSuccess(data);
-                    });
+                            this.handleSamEmbeddingRequestSuccess({ id: id, extent: extent, embedding: buffer });
+                        });
+                    } else {
+                        this.handleSamEmbeddingRequestSuccess();
                     }
                 },
                     this.handleSamEmbeddingRequestFailure

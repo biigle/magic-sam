@@ -91,7 +91,8 @@ class ImageEmbeddingController extends Controller
 
         return response()->file($file, [
             'Content-Type' => 'application/octet-stream',
-            'X-Meta-Info' => json_encode(['id' => $embId, 'extent' => $embExtent])
+            'X-Embedding-Id' => $embId,
+            'X-Embedding-Extent' => json_encode($embExtent)
         ]);
     }
 }
