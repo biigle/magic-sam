@@ -92,7 +92,7 @@ export default {
             this.resetInteractionMode();
             this.finishLoadingMagicSam();
             if (response.status == 429) {
-                Messages.warning("A SAM job is still running. Please try again later.")
+                Messages.warning("A SAM job is still running. Please retry later.")
             } else {
                 handleErrorResponse(response);
             }
