@@ -76,7 +76,7 @@ export default {
                 this.interactionMode = 'magicSam';
             }
         },
-        handleSamEmbeddingRequestSuccess(responseBody) {
+        handleSamEmbeddingRequestSuccess(responseBody = null) {
             if (this.image.id !== loadingImageId) {
                 return;
             }
