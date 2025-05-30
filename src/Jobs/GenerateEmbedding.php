@@ -6,7 +6,6 @@ use Exception;
 use FileCache;
 use Biigle\User;
 use Biigle\Image;
-use GuzzleHttp\Promise\Each;
 use Illuminate\Http\Request;
 use Illuminate\Bus\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -308,7 +307,7 @@ class GenerateEmbedding
         return $image;
     }
 
-    protected function createImageFromTiles($retry = 3)
+    protected function createImageFromTiles()
     {
         $tiles = collect($this->tiles);
         $tiles = $tiles->sortBy(fn($t) => $t['y']);
@@ -319,52 +318,11 @@ class GenerateEmbedding
 
         $vipsTiles = [];
 
-        if (config('filesystems.disks.tiles.driver') == 's3') {
-            $client = $disk->getClient();
-            $bucket = $disk->getConfig()['bucket'];
-
-            $uploads = function ($tiles) use ($client, $bucket, $fragment, $format) {
-                foreach ($tiles as $tile) {
-                    $group = $tile['group'];
-                    $filename = $tile['zoom'] . "-" . $tile['x'] . "-" . $tile['y'];
-                    yield $client->getObjectAsync([
-                        'Bucket' => $bucket,
-                        'Key' => "tiles/{$fragment}/TileGroup{$group}/{$filename}.{$format}",
-                    ]);
-                }
-            };
-
-            $onFullfilled = function ($response, $index) use (&$vipsTiles) {
-                $vipsTiles[$index] = VipsImage::newFromBuffer( $response['Body'], ['access' => 'sequential']);
-            };
-            $onRejected = function ($reason, $index) use (&$failedDownloads, $tiles) {
-                $failedDownloads[$index] = $tiles[$index];
-            };
-
-            while ($retry > 0) {
-                $failedDownloads = [];
-                $this->downloadTiles($uploads($tiles), $onFullfilled, $onRejected);
-
-                if (empty($failedDownloads)) {
-                    break;
-                }
-
-                $tiles = $failedDownloads;
-                $retry -= 1;
-            }
-
-            if ($failedDownloads) {
-                $id = $this->image->id;
-                throw new Exception("Couldn't generate segmentation mask for image with id {$id}");
-            }
-
-        } else {
-            foreach ($tiles as $tile) {
-                $group = $tile['group'];
-                $filename = $tile['zoom'] . "-" . $tile['x'] . "-" . $tile['y'];
-                $path = $disk->path("{$fragment}/TileGroup{$group}/{$filename}.{$format}");
-                $vipsTiles[] = VipsImage::newFromFile($path, ['access' => 'sequential']);
-            }
+        foreach ($tiles as $tile) {
+            $group = $tile['group'];
+            $filename = $tile['zoom'] . "-" . $tile['x'] . "-" . $tile['y'];
+            $buffer = $disk->get("tiles/{$fragment}/TileGroup{$group}/{$filename}.{$format}");
+            $vipsTiles[] = VipsImage::newFromBuffer(buffer: $buffer, options: ['access' => 'sequential']);
         }
 
         $columns = $tiles->groupBy('x')->keys()->count();
@@ -384,16 +342,4 @@ class GenerateEmbedding
             'strip' => true,
         ]);
     }
-
-    protected function downloadTiles($tiles, $onFullfilled, $onRejected)
-    {
-        Each::ofLimit(
-            $tiles,
-            config('image.tiles.nbr_con_requests'),
-            $onFullfilled,
-            $onRejected
-        )
-            ->wait();
-    }
-
 }
