@@ -68,7 +68,7 @@ class ImageEmbeddingController extends Controller
                 Cache::add($job_count, 1);
             }
 
-            $shouldBeQueued = $image->tiled || Cache::get($job_count) > config('magic_sam.queue_threshold');
+            $shouldBeQueued = Cache::get($job_count) > config('magic_sam.queue_threshold');
 
             if ($shouldBeQueued) {
                 Queue::connection(config('magic_sam.request_connection'))
