@@ -2,11 +2,14 @@
 
 namespace Biigle\Modules\MagicSam;
 
-use Biigle\Modules\MagicSam\Console\Commands\PruneOldEmbeddings;
 use Biigle\Services\Modules;
-use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Routing\Router;
+use Biigle\Events\ImagesDeleted;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Console\Scheduling\Schedule;
+use Biigle\Modules\MagicSam\Console\Commands\PruneOldEmbeddings;
+use Biigle\Modules\MagicSam\Listeners\CleanupImageEmbeddings;
 
 class MagicSamServiceProvider extends ServiceProvider
 {
@@ -29,6 +32,8 @@ class MagicSamServiceProvider extends ServiceProvider
         ], function ($router) {
             require __DIR__.'/Http/routes.php';
         });
+
+         Event::listen(ImagesDeleted::class, CleanupImageEmbeddings::class);
 
         $modules->register('magic-sam', [
             'viewMixins' => [
