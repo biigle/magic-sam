@@ -99,8 +99,8 @@ class Embedding extends Model
         $maxWidth = $width * (1 + $sizeFactor);
         $maxHeight = $height * (1 + $sizeFactor);
 
-        $maxDistX = $extent[0] * $sizeFactor;
-        $maxDistY = $extent[1] * $sizeFactor;
+        $maxDistX = $width * $sizeFactor;
+        $maxDistY = $height * $sizeFactor;
 
         return self::where('image_id', $imgId)
             ->when($excludedEmbeddingId, fn($query) => $query->where('id', '!=', $excludedEmbeddingId)) // exclude current embedding
