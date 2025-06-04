@@ -321,7 +321,7 @@ class GenerateEmbedding
         foreach ($tiles as $tile) {
             $group = $tile['group'];
             $filename = $tile['zoom'] . "-" . $tile['x'] . "-" . $tile['y'];
-            $buffer = $disk->get("tiles/{$fragment}/TileGroup{$group}/{$filename}.{$format}");
+            $buffer = $disk->get("{$fragment}/TileGroup{$group}/{$filename}.{$format}");
             $vipsTiles[] = VipsImage::newFromBuffer(buffer: $buffer, options: ['access' => 'sequential']);
         }
 
