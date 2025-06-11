@@ -53,11 +53,13 @@ def download_checkpoint(url, path, timeout=60, chunk_size_kb=1024):
 
 
 class Sam():
-    def __init__(self, checkpoint_url, checkpoint_path, model_type, device):
+    def __init__(self, checkpoint_url, checkpoint_path, model_type, device, reduce_gpu_usg):
         download_checkpoint(checkpoint_url, checkpoint_path)
         self.device = device
         self.sam = sam_model_registry[model_type](checkpoint=checkpoint_path)
         self.sam.to(device=device)
+        self.isCuda = device.lower() == "cuda"
+        self.reduce_gpu_usg = reduce_gpu_usg
 
     def generate_embedding(self, out_path, image):
         image = Image.open(image.stream)
@@ -78,6 +80,9 @@ class Sam():
             transformed_image = input_image_torch.permute(2, 0, 1).contiguous()[None, :, :, :]
             input_image = self.sam.preprocess(transformed_image)
             image_embedding = self.sam.image_encoder(input_image).cpu().numpy()
-            torch.cuda.empty_cache()
 
         np.save(out_path, image_embedding)
+
+    def clear(self):
+        if (self.isCuda and self.reduce_gpu_usg):
+            torch.cuda.empty_cache()
