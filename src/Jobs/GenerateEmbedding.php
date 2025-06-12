@@ -70,6 +70,13 @@ class GenerateEmbedding
     public $tiledImageExtent;
 
     /**
+     * Number of tiles used to cover the viewport horizontally
+     *
+     * @var int
+     */
+    public $tileColumns;
+
+    /**
      * Ignore this job if the image or user does not exist any more.
      *
      * @var bool
@@ -92,6 +99,7 @@ class GenerateEmbedding
         $this->extent = $request->input('extent');
         $this->tiles = $request->input('tiles', []);
         $this->tiledImageExtent = $request->input('tiledImageExtent', []);
+        $this->tileColumns = $request->input('columns', 0);
     }
 
     /**
@@ -124,7 +132,6 @@ class GenerateEmbedding
         $emb->filename = $embFilename;
 
         if (!$disk->exists($prefix)) {
-            //TODO: check if not s3 disk
             $disk->makeDirectory($prefix);
         }
 
@@ -309,25 +316,20 @@ class GenerateEmbedding
 
     protected function createImageFromTiles()
     {
-        $tiles = collect($this->tiles);
-        $tiles = $tiles->sortBy(fn($t) => $t['y']);
-
         $disk = Storage::disk(config('image.tiles.disk'));
         $fragment = fragment_uuid_path($this->image->uuid);
         $format = config('image.tiles.format');
 
         $vipsTiles = [];
 
-        foreach ($tiles as $tile) {
+        foreach ($this->tiles as $tile) {
             $group = $tile['group'];
             $filename = $tile['zoom'] . "-" . $tile['x'] . "-" . $tile['y'];
             $buffer = $disk->get("{$fragment}/TileGroup{$group}/{$filename}.{$format}");
             $vipsTiles[] = VipsImage::newFromBuffer(buffer: $buffer, options: ['access' => 'sequential']);
         }
 
-        $columns = $tiles->groupBy('x')->keys()->count();
-
-        $image = VipsImage::arrayjoin($vipsTiles, ['across' => $columns]);
+        $image = VipsImage::arrayjoin($vipsTiles, ['across' => $this->tileColumns]);
 
         if ($this->shouldCrop($image)) {
             $image = $this->crop($image);

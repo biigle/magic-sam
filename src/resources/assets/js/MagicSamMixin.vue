@@ -267,14 +267,14 @@ export default {
             let totalTilesIndex = computeTotalTilesIndex(this.image.width, this.image.height);
             let tiles = []
 
-            for (let x = tileRange.minX; x <= tileRange.maxX; x++) {
-                for (let y = tileRange.minY; y <= tileRange.maxY; y++) {
+            for (let y = tileRange.minY; y <= tileRange.maxY; y++) {
+                for (let x = tileRange.minX; x <= tileRange.maxX; x++) {
                     let group = computeTileGroup(totalTilesIndex, zoom, x, y)
                     tiles.push({ 'group': group, 'zoom': zoom, 'x': x, 'y': y });
                 }
             }
 
-            return [tiles, tiledImageExtent];
+            return [tiles, tiledImageExtent, (tileRange.maxX-tileRange.minX+1)];
         },
         computeZoom(view, extent) {
             let zoom = -1;
@@ -388,7 +388,7 @@ export default {
 
             if(this.image.tiled) {
                 let tilesDescription = this.getTileDescriptions();
-                body = { extent: extent, tiles: tilesDescription[0], tiledImageExtent: tilesDescription[1]};
+                body = { extent: extent, tiles: tilesDescription[0], tiledImageExtent: tilesDescription[1], columns: tilesDescription[2]};
             } else {
                 body = { extent: extent };
             }

@@ -35,6 +35,7 @@ class StoreEmbedding extends FormRequest
             'tiles.*.*' => 'int|gte:0',
             'tiledImageExtent' => 'nullable|list|size:4',
             'tiledImageExtent.*' => 'numeric|gte:0',
+            'columns' => 'nullable|int|gte:1'
         ];
     }
 
