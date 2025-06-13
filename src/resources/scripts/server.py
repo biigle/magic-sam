@@ -11,13 +11,11 @@ MAGIC_SAM_MODEL_URL = 'MAGIC_SAM_MODEL_URL'
 MAGIC_SAM_CHECKPOINT_PATH = 'MAGIC_SAM_CHECKPOINT_PATH'
 MAGIC_SAM_MODEL_TYPE = 'MAGIC_SAM_MODEL_TYPE'
 MAGIC_SAM_DEVICE = 'MAGIC_SAM_DEVICE'
-MAGIC_SAM_REDUCE_GPU_USG = 'MAGIC_SAM_REDUCE_GPU_USG'
 
 url = os.environ.get(MAGIC_SAM_MODEL_URL)
 path = os.environ.get(MAGIC_SAM_CHECKPOINT_PATH)
 model_type = os.environ.get(MAGIC_SAM_MODEL_TYPE)
 device = os.environ.get(MAGIC_SAM_DEVICE)
-reduce_gpu_usg = os.environ.get(MAGIC_SAM_REDUCE_GPU_USG, False)
 
 
 def log_and_exit(e):
@@ -52,8 +50,7 @@ def check_sam_arguments():
 
 try:
     check_sam_arguments()
-    reduce_gpu_usg = str(reduce_gpu_usg).lower() in ["1", "true"]
-    sam = Sam(url, path, model_type, device, reduce_gpu_usg)
+    sam = Sam(url, path, model_type, device)
     start_request_processing()
     app = Flask(__name__)
 except Exception as e:

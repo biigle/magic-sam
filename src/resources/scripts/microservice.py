@@ -22,7 +22,6 @@ def process_requests(sam):
             with threadCondition:
                 finished_tasks[req.out_path] = True
                 threadCondition.notify_all()
-            sam.clear()
         except Exception as e:
             logging.error("Failed to generate embedding for '{f}' due to:\n\t{e}".format(f=req.image.filename, e=e))
             with threadCondition:
