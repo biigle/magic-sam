@@ -78,6 +78,5 @@ class Sam():
             transformed_image = input_image_torch.permute(2, 0, 1).contiguous()[None, :, :, :]
             input_image = self.sam.preprocess(transformed_image)
             image_embedding = self.sam.image_encoder(input_image).cpu().numpy()
-            torch.cuda.empty_cache()
 
         np.save(out_path, image_embedding)
