@@ -94,7 +94,7 @@ class MagicSamInteraction extends PointerInteraction {
         return this.throttleInterval;
     }
 
-    updateEmbedding(url, embedding, embTensor, extent) {
+    updateEmbedding(embeddingURLorObject, extent) {
         let width = Math.floor(Math.abs(extent[2] - extent[0]));
         let height = Math.floor(Math.abs(extent[3] - extent[1]));
 
@@ -112,26 +112,25 @@ class MagicSamInteraction extends PointerInteraction {
         // Maybe the model is not initialized at this point so we have to wait for that,
         // too.
         let promise = null;
-        if (embedding) {
-            promise = Vue.Promise.all([this.initPromise])
-                .then(() => {
-                    let npArray = npy.parse(embedding);
-                    this.embedding = new Tensor("float32", npArray.data, npArray.shape);
-                    this._runModelWarmup();
-                });
-        } else if (embTensor) {
-            promise = Vue.Promise.all([this.initPromise])
-                .then(() => {
-                    this.embedding = embTensor;
-                    this._runModelWarmup();
-                });
-        } else {
-             promise = Vue.Promise.all([npy.load(url), this.initPromise])
+        if (typeof embeddingURLorObject === "string") {
+            promise = Vue.Promise.all([npy.load(embeddingURLorObject), this.initPromise])
                 .then(([npArray,]) => {
                     this.embedding = new Tensor("float32", npArray.data, npArray.shape);
                     this._runModelWarmup();
                 });
+        } else {
+            promise = Vue.Promise.all([this.initPromise])
+                .then(() => {
+                    if (embeddingURLorObject instanceof ArrayBuffer) {
+                        let npArray = npy.parse(embeddingURLorObject);
+                        this.embedding = new Tensor("float32", npArray.data, npArray.shape);
+                    } else {
+                        this.embedding = embeddingURLorObject;
+                    }
+                    this._runModelWarmup();
+                });
         }
+
         return promise;
     }
 

@@ -34,7 +34,7 @@ export default {
             focusLayer: null,
             focusModus: false,
             prevExtent: [],
-            prevTensor: [],
+            prevEmbedding: [],
         };
     },
     computed: {
@@ -106,14 +106,13 @@ export default {
                 return;
             }
 
-            let bufferedEmbedding = null;
+            let embedding = null;
             let usedExtent = null;
-            let url = null;
 
             if (response.embedding) {
-                bufferedEmbedding = response.embedding;
+                embedding = response.embedding;
             } else {
-                url = response.url
+                embedding = response.url
             }
 
             this.embeddingId = response.id
@@ -121,7 +120,7 @@ export default {
             this.invertPointsYAxis(usedExtent);
 
             loadedImageId = this.image.id;
-            magicSamInteraction.updateEmbedding(url, bufferedEmbedding, null, usedExtent)
+            magicSamInteraction.updateEmbedding(embedding, usedExtent)
                 .then(() => {
                     if (this.image.tiled || this.focusModus) {
                         this.drawFocusBox(response.extent)
@@ -246,7 +245,7 @@ export default {
         savePrevEmbeddingData() {
             this.prevExtent = this.computeEmbeddingExtent();
             this.invertPointsYAxis(this.prevExtent);
-            this.prevTensor = magicSamInteraction.getCurrentEmbeddingTensor();
+            this.prevEmbedding = magicSamInteraction.getCurrentEmbeddingTensor();
         },
         computeEmbeddingExtent() {
             let view = this.map.getView();
@@ -341,11 +340,11 @@ export default {
             if (this.focusModus) {
                 this.focusModus = false;
 
-                if (this.prevTensor) {
+                if (this.prevEmbedding) {
                     this.startLoadingMagicSam();
-                    magicSamInteraction.updateEmbedding(null, null, this.prevTensor, this.prevExtent)
+                    magicSamInteraction.updateEmbedding(this.prevEmbedding, this.prevExtent)
                         .then(() => {
-                            this.prevTensor = null;
+                            this.prevEmbedding = null;
                             this.prevExtent = [];
                         })
                         .then(this.finishLoadingMagicSam)
@@ -363,7 +362,7 @@ export default {
             this.startDrawing = false;
             this.focusLayer.getSource().clear();
             this.prevExtent = [];
-            this.prevTensor = null;
+            this.prevEmbedding = null;
         }
     },
     watch: {
