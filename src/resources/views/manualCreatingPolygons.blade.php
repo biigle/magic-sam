@@ -13,7 +13,7 @@
 </p>
 
 <p>
-    If magic SAM is active, all you need to do is to move your cursor over an object in the image and it will be automatically outlined. If the outline is not perfect, try to move the cursor a bit. Once you are satisfied with the outline, click and the current outline will be created as a polygon annotation. You can also use the <a href="/manual/tutorials/annotations/editing-annotations">eraser and fill tools</a> to modify the annotation later.
+    If magic SAM is active, all you need to do is to move your cursor over an object in the image and it will be automatically outlined. If the outline is not perfect, you can either try to move the cursor a bit or use the SAM focus modus by entering the key <td><kbd>y</kbd></td>. The focus modus is enabled by default for large images over {{ config('image.tiles.threshold') }}px. It uses the image section that is visible in the annotation tool to generate more detailed outlines. If the section is smaller than {{config('magic_sam.sam_target_size')}}px on at least one edge then a square of {{config('magic_sam.sam_target_size')}}x{{config('magic_sam.sam_target_size')}}px is used around the center of the image section. The image section displays transparency only in the segmentation area, with all other parts remaining opaque during this time. Return to the previous segmentation area and escape the focus modus by using the key <td><kbd>x</kbd></td>. Once you are satisfied with the outline, click and the current outline will be created as a polygon annotation. You can also use the <a href="/manual/tutorials/annotations/editing-annotations">eraser and fill tools</a> to modify the annotation later.
 </p>
 
 <p class="text-center">
