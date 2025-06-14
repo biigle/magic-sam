@@ -158,7 +158,7 @@ export default {
             magicSamInteraction.setActive(false);
             this.map.addInteraction(magicSamInteraction);
         },
-        validateExtent(extent) {
+        processExtent(extent) {
             // Set viewport values on 0 or max height or width if the viewport corners are located outside the image
             let viewport = extent.map((c, i) => {
                 let size = i % 2 == 0 ? this.image.width : this.image.height;
@@ -226,7 +226,7 @@ export default {
                     this.focusModus = true;
                     this.savePrevEmbeddingData();
                     this.invertPointsYAxis(featureExtent);
-                    featureExtent = this.validateExtent(featureExtent);
+                    featureExtent = this.processExtent(featureExtent);
                     this.requestImageEmbedding({ extent: featureExtent, excludeEmbeddingId: this.embeddingId });
                 } else {
                     Messages.info("Please select an object before requesting refined outlines.")
@@ -242,7 +242,7 @@ export default {
             let view = this.map.getView();
             let extent = view.calculateExtent(this.map.getSize());
             this.invertPointsYAxis(extent);
-            return this.validateExtent(extent);
+            return this.processExtent(extent);
         },
         getTileDescriptions() {
             let view = this.map.getView();
