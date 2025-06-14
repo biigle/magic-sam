@@ -244,7 +244,7 @@ export default {
             this.invertPointsYAxis(extent);
             return this.processExtent(extent);
         },
-        getTileDescriptions() {
+        getImageTilesDescription() {
             let view = this.map.getView();
 
             let extent = this.computeEmbeddingExtent();
@@ -254,15 +254,6 @@ export default {
             let source = this.tiledImageLayer.getSource();
             let tileGrid = source.getTileGridForProjection(view.getProjection());
             let tileRange = tileGrid.getTileRangeForExtentAndZ(extent, zoom);
-
-            let ll = tileGrid.getTileCoordForCoordAndZ([extent[0],extent[1]], zoom);
-            let ur = tileGrid.getTileCoordForCoordAndZ([extent[2],extent[3]], zoom);
-
-            let llCoords = tileGrid.getTileCoordExtent(ll);
-            let urCoords = tileGrid.getTileCoordExtent(ur);
-
-            let tiledImageExtent = [llCoords[0], llCoords[1], urCoords[2], urCoords[3]];
-            this.invertPointsYAxis(tiledImageExtent);
 
             let totalTilesIndex = computeTotalTilesIndex(this.image.width, this.image.height);
             let tiles = []
@@ -274,7 +265,22 @@ export default {
                 }
             }
 
-            return [tiles, tiledImageExtent, (tileRange.maxX-tileRange.minX+1)];
+            return { 'tiles': tiles, 'tiledImageExtent': this.getTiledImageExtent(extent, zoom, tileGrid), 'columns': (tileRange.maxX - tileRange.minX + 1) };
+        },
+        getTiledImageExtent(extent, zoom, tileGrid) {
+            // Lower left corner
+            let ll = tileGrid.getTileCoordForCoordAndZ([extent[0], extent[1]], zoom);
+            // Uper right corner
+            let ur = tileGrid.getTileCoordForCoordAndZ([extent[2], extent[3]], zoom);
+
+            // Tiles that cover the viewport can have corners outside the viewport
+            let llCoords = tileGrid.getTileCoordExtent(ll);
+            let urCoords = tileGrid.getTileCoordExtent(ur);
+
+            let tiledImageExtent = [llCoords[0], llCoords[1], urCoords[2], urCoords[3]];
+            this.invertPointsYAxis(tiledImageExtent);
+
+            return tiledImageExtent;
         },
         computeZoom(view, extent) {
             let zoom = -1;
@@ -387,8 +393,7 @@ export default {
             let body = null;
 
             if(this.image.tiled) {
-                let tilesDescription = this.getTileDescriptions();
-                body = { extent: extent, tiles: tilesDescription[0], tiledImageExtent: tilesDescription[1], columns: tilesDescription[2]};
+                body = Object.assign({ extent: extent }, this.getTileDescriptions());
             } else {
                 body = { extent: extent };
             }
