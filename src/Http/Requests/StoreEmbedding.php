@@ -53,9 +53,10 @@ class StoreEmbedding extends FormRequest
 
             $width = abs($extent[2] - $extent[0]);
             $height = abs($extent[1] - $extent[3]);
+            $isImageSection = $this->image->width > $width && $this->image->height;
 
-            if ($width < $targetSize || $height < $targetSize) {
-                $validator->errors()->add('extent', "The image's width and height need to be greater or equal than {$targetSize} pixel.");
+            if ($isImageSection && ($width < $targetSize || $height < $targetSize)) {
+                $validator->errors()->add('extent', "The image section's width and height need to be greater or equal than {$targetSize} pixel.");
             }
 
             if ($this->image->tiled) {

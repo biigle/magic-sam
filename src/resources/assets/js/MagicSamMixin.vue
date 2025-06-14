@@ -159,6 +159,11 @@ export default {
             this.map.addInteraction(magicSamInteraction);
         },
         processExtent(extent) {
+            // Images that are smaller than the target size should be processes only as a whole 
+            if (this.image.width < this.targetSize || this.image.height < this.targetSize) {
+                return [0, this.image.height, this.image.width, 0];
+            }
+
             // Set viewport values on 0 or max height or width if the viewport corners are located outside the image
             let viewport = extent.map((c, i) => {
                 let size = i % 2 == 0 ? this.image.width : this.image.height;
@@ -218,6 +223,11 @@ export default {
         requestRefinedEmbedding() {
             if (this.focusModus) {
                 return;
+            }
+
+            // Disable focus for too small images
+            if (this.image.width < this.targetSize || this.image.height < this.targetSize){
+                return
             }
 
             if (this.startDrawing) {
@@ -392,7 +402,7 @@ export default {
             let extent = this.computeEmbeddingExtent();
             let body = null;
 
-            if(this.image.tiled) {
+            if (this.image.tiled) {
                 body = Object.assign({ extent: extent }, this.getTileDescriptions());
             } else {
                 body = { extent: extent };
