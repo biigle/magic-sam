@@ -174,26 +174,30 @@ export default {
             let height = viewport[1] - viewport[3];
 
             if (width < this.targetSize || height < this.targetSize) {
-                if (viewport[0] == 0) {
-                    let diffX = (this.targetSize - width)
-                    viewport[2] += diffX
-                } else if (viewport[2] == this.image.width) {
-                    let diffX = (this.targetSize - width)
-                    viewport[0] -= diffX
+                let diffX = (this.targetSize - width) / 2;
+                if (viewport[0] < diffX) {
+                    diffX = (this.targetSize - width) - viewport[0];
+                    viewport[0] = 0;
+                    viewport[2] += diffX;
+                } else if ((viewport[2] + diffX) > this.image.width) {
+                    diffX = (this.targetSize - width) - (this.image.width - viewport[2]);
+                    viewport[0] -= diffX;
+                    viewport[2] = this.image.width;
                 } else {
-                    let diffX = (this.targetSize - width) / 2;
                     viewport[0] -= diffX
                     viewport[2] += diffX
                 }
 
-                if (viewport[1] == this.image.height) {
-                    let diffY = (this.targetSize - height)
+                let diffY = (this.targetSize - height) / 2;
+                if ((viewport[1] + diffY) > this.image.height) {
+                    diffY = (this.targetSize - height) - (this.image.height - viewport[1])
+                    viewport[1] = this.image.height
                     viewport[3] -= diffY
-                } else if (viewport[3] == 0) {
-                    let diffY = (this.targetSize - height)
+                } else if (viewport[3] < diffY) {
+                    diffY = (this.targetSize - height) - viewport[3]
+                    viewport[3] = 0
                     viewport[1] += diffY
                 } else {
-                    let diffY = (this.targetSize - height) / 2;
                     viewport[1] += diffY
                     viewport[3] -= diffY
                 }
