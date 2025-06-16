@@ -57,10 +57,10 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
      * @param User $user
      * @param Request $request
      */
-    public function __construct(Image $image, User $user, Request $request)
+    public function __construct(Image $image, Request $request)
     {
         $this->image = $image;
-        $this->user = $user;
+        $this->user = $request->user();
         $this->extent = $request->input('extent');
         $this->tiles = $request->input('tiles', []);
         $this->tiledImageExtent = $request->input('tiledImageExtent', []);
