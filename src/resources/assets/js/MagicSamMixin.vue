@@ -173,7 +173,7 @@ export default {
             let width = viewport[2] - viewport[0];
             let height = viewport[1] - viewport[3];
 
-            if (width < this.targetSize || height < this.targetSize) {
+            if (width < this.targetSize) {
                 let diffX = (this.targetSize - width) / 2;
                 if (viewport[0] < diffX) {
                     diffX = (this.targetSize - width) - viewport[0];
@@ -187,7 +187,9 @@ export default {
                     viewport[0] -= diffX
                     viewport[2] += diffX
                 }
+            }
 
+            if (height < this.targetSize) {
                 let diffY = (this.targetSize - height) / 2;
                 if ((viewport[1] + diffY) > this.image.height) {
                     diffY = (this.targetSize - height) - (this.image.height - viewport[1])
