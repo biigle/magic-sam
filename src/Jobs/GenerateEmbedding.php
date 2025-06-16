@@ -7,74 +7,41 @@ use FileCache;
 use Biigle\User;
 use Biigle\Image;
 use Illuminate\Http\Request;
-use Illuminate\Bus\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Jcupitt\Vips\Image as VipsImage;
-use Illuminate\Support\Facades\Cache;
 use Biigle\Modules\MagicSam\Embedding;
-use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
-use Biigle\Modules\MagicSam\Events\EmbeddingFailed;
-use Biigle\Modules\MagicSam\Events\EmbeddingAvailable;
 
-class GenerateEmbedding
+class GenerateEmbedding extends AbstractGenerateEmbedding
 {
-    use SerializesModels, Queueable;
-
-    /**
-     * The image to generate an embedding of.
-     *
-     * @var Image
-     */
-    public $image;
-
-    /**
-     * The user who initiated the job.
-     *
-     * @var User
-     */
-    public $user;
-
-    /**
-     * Job can either be executed synchronously or asynchronously
-     * 
-     * @var bool
-     */
-    public $isAsync;
 
     /**
      * Lower left and upper right corner of viewport
      * @var array
      */
-    public $extent;
-
-    /**
-     * The embedding of the image (section)
-     * @var Embedding
-     */
-    public $embedding;
+    protected $extent;
 
     /**
      * Array containing the group, zoom level, column and row index for each tile.
      *
      * @var array
      */
-    public $tiles;
+    protected $tiles;
 
     /**
      * Extent of the tiles that are used to cover the viewport.
      *
      * @var array
      */
-    public $tiledImageExtent;
+    protected $tiledImageExtent;
 
     /**
      * Number of tiles used to cover the viewport horizontally
      *
      * @var int
      */
-    public $tileColumns;
+    protected $tileColumns;
 
     /**
      * Ignore this job if the image or user does not exist any more.
@@ -89,13 +56,11 @@ class GenerateEmbedding
      * @param Image $image
      * @param User $user
      * @param Request $request
-     * @param bool $isAsync
      */
-    public function __construct(Image $image, User $user, Request $request, $isAsync = True)
+    public function __construct(Image $image, User $user, Request $request)
     {
         $this->image = $image;
         $this->user = $user;
-        $this->isAsync = $isAsync;
         $this->extent = $request->input('extent');
         $this->tiles = $request->input('tiles', []);
         $this->tiledImageExtent = $request->input('tiledImageExtent', []);
@@ -103,19 +68,12 @@ class GenerateEmbedding
     }
 
     /**
-      * Handle the job.
+      * Process the job.
       *
       * @return void
       */
-    public function handle()
+    public function process()
     {
-        $jobCount = config('magic_sam.job_count_cache_key');
-        $userJobCount = self::getRateLimitCacheKey($this->user);
-
-        if ($this->isAsync) {
-            Cache::increment($jobCount);
-        }
-
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
         $prefix = fragment_uuid_path($this->image->uuid);
 
@@ -135,59 +93,17 @@ class GenerateEmbedding
             $disk->makeDirectory($prefix);
         }
 
-        try {
-            $destPath = $disk->path("{$prefix}/{$embFilename}");
-            if ($this->image->tiled) {
-                $this->generateEmbeddingForTiledImage($embFilename, $destPath);
-            } else {
-                $this->generateEmbedding($embFilename, $destPath);
-            }
-
-            $this->embedding = DB::transaction(function () use ($emb) {
-                $emb->save();
-                return $emb;
-            });
-
-            if ($this->isAsync) {
-                $this->decrementCacheCount($jobCount);
-                $this->decrementCacheCount($userJobCount);
-                EmbeddingAvailable::dispatch($this->user, $emb->id, "{$prefix}/{$embFilename}", $this->extent);
-            }
-        } catch (Exception $e) {
-            if ($this->isAsync) {
-                $this->decrementCacheCount($jobCount);
-                $this->decrementCacheCount($userJobCount);
-                EmbeddingFailed::dispatch($this->user);
-            }
-            throw $e;
-        }
-    }
-
-    /* Return the cache key to store the number of concurrent jobs for each user.
-     *
-     * @param User $user
-     *
-     * @return string
-     */
-    public static function getRateLimitCacheKey(User $user)
-    {
-        return "embedding-generation-{$user->id}";
-    }
-
-    /**
-     * Decrement cache count
-     *
-     * @param int $cacheKey
-     * 
-     * @return void
-     */
-    protected function decrementCacheCount($cacheKey)
-    {
-        if (Cache::get($cacheKey) > 0) {
-            Cache::decrement($cacheKey);
+        $destPath = $disk->path("{$prefix}/{$embFilename}");
+        if ($this->image->tiled) {
+            $this->generateEmbeddingForTiledImage($embFilename, $destPath);
         } else {
-            Cache::put($cacheKey, 0);
+            $this->generateEmbedding($embFilename, $destPath);
         }
+
+        $this->embedding = DB::transaction(function () use ($emb) {
+            $emb->save();
+            return $emb;
+        });
     }
 
     /**

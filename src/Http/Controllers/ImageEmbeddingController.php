@@ -66,12 +66,12 @@ class ImageEmbeddingController extends Controller
 
                 return;
             } else {
-                $job = new GenerateEmbedding($image, $request->user(), $request, False);
-                $job->handle();
-                $embId = $job->embedding->id;
-                $embExtent = $job->embedding->getExtent();
+                $job = new GenerateEmbedding($image, $request->user(), $request);
+                $emb = $job->handleSync();
+                $embId = $emb->id;
+                $embExtent = $emb->getExtent();
                 $prefix = fragment_uuid_path($image->uuid);
-                $file = $disk->path("{$prefix}/".$job->embedding->filename);
+                $file = $disk->path("{$prefix}/".$emb->filename);
             }
         }
 
