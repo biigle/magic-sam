@@ -22,14 +22,12 @@ class ImageEmbeddingController extends Controller
      * @apiGroup Images
      * @apiName StoreSamEmbedding
      * @apiPermission projectMember
-     * @apiDescription This will generate a SAM embedding for the image and propagate the download URL to the user's Websockets channel. If an embedding already exists, it returns the download URL directly.
+     * @apiDescription This will generate a SAM embedding for the image and propagate the download URL to the user's Websockets channel. If an embedding already exists, it returns the embedding directly.
      *
      * @apiParam {Number} id The image ID.
      *
-     * @apiSuccessExample {json} Success response:
-     * {
-     *    "url": "https://example.com/storage/1.npy"
-     * }
+     * @header {X-Embedding-Id} The used embedding's id
+     * @header {X-Embedding-Extent} The embedding's extent coordinates (e.g [0,1,1,0])
      *
      * @param Request $request
      * @param int $id
