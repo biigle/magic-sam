@@ -102,6 +102,11 @@ return [
     'job_count_cache_key' => 'job_count',
 
     /*
+    | Cache key for user job counts
+   */
+    'user_job_count' => 'embedding-generation-%u',
+
+    /*
      | Factor that determines the image section size limit
     */
     'image_section_max_size_factor' => 0.31,
