@@ -38,8 +38,8 @@ class ImageEmbeddingController extends Controller
         $jobCountKey = config('magic_sam.job_count_cache_key');
         $threshold = config('magic_sam.queue_threshold');
         $image = Image::findOrFail($id);
-        $prefix = fragment_uuid_path($image->uuid);
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
+        $prefix = fragment_uuid_path($image->uuid);
         $extent = $request->input('extent');
         $excludedEmbId = $request->input('excludeEmbeddingId', 0);
         $embId = null;
@@ -49,7 +49,7 @@ class ImageEmbeddingController extends Controller
 
         $jobCount = Cache::get($userCacheKey, 0);
         if (!$emb && $jobCount == 1) {
-            throw new TooManyRequestsHttpException("You already have a SAM job running. Please wait for the one to finish until you submit a new one.");
+            throw new TooManyRequestsHttpException(message: "You already have a SAM job running. Please wait for the one to finish until you submit a new one.");
         }
 
         if ($emb) {
