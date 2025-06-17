@@ -5,6 +5,17 @@ import torch
 import os
 import requests
 import time
+from model import Model
+
+MAGIC_SAM_MODEL_URL = 'MAGIC_SAM_MODEL_URL'
+MAGIC_SAM_CHECKPOINT_PATH = 'MAGIC_SAM_CHECKPOINT_PATH'
+MAGIC_SAM_MODEL_TYPE = 'MAGIC_SAM_MODEL_TYPE'
+MAGIC_SAM_DEVICE = 'MAGIC_SAM_DEVICE'
+
+url = os.environ.get(MAGIC_SAM_MODEL_URL)
+path = os.environ.get(MAGIC_SAM_CHECKPOINT_PATH)
+model_type = os.environ.get(MAGIC_SAM_MODEL_TYPE)
+device = os.environ.get(MAGIC_SAM_DEVICE)
 
 def wait_on_checkpoint_download(path, size, total_size, timeout):
     elapsed_time = 0
@@ -52,11 +63,21 @@ def download_checkpoint(url, path, timeout=60, chunk_size_kb=1024):
                 fdst_write(buf)
 
 
-class Sam():
-    def __init__(self, checkpoint_url, checkpoint_path, model_type, device):
-        download_checkpoint(checkpoint_url, checkpoint_path)
+def check_sam_arguments():
+    is_pth_file = path.endswith('.pth')
+    if (not url or not is_pth_file or not model_type or not device):
+        raise Exception("Couldn't initialize SAM model. Missing env-variables: {u}{p}{t}{d}".format(
+            u=MAGIC_SAM_MODEL_URL+', ' if not url else '',
+            p=MAGIC_SAM_CHECKPOINT_PATH+', ' if not is_pth_file else '',
+            t=MAGIC_SAM_MODEL_TYPE+', ' if not model_type else '',
+            d=MAGIC_SAM_DEVICE if not device else ''))
+
+class Sam(metaclass=Model):
+    def __init__(self):
+        check_sam_arguments()
+        download_checkpoint(url, path)
         self.device = device
-        self.sam = sam_model_registry[model_type](checkpoint=checkpoint_path)
+        self.sam = sam_model_registry[model_type](checkpoint=path)
         self.sam.to(device=device)
 
     def generate_embedding(self, out_path, image):

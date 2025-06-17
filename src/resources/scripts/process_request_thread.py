@@ -1,19 +1,17 @@
 import threading
 import time
+import logging
 
 class ProcessRequestThread(threading.Thread):
 
     # needed in new exception hook
     exception = None
 
-    sam = None
-
     retry_count = None
 
     target = None
 
-    def __init__(self, sam, target, retry_count = 3):
-        self.sam = sam
+    def __init__(self, target, retry_count = 3):
         self.retry_count = retry_count
         self.target = target
         super().__init__()
@@ -25,10 +23,11 @@ class ProcessRequestThread(threading.Thread):
         # restart thread if possible
         while self.retry_count > 0:
             start = time.time()
-            t = threading.Thread(target=self.target, daemon=True, args=[self.sam])
+            t = threading.Thread(target=self.target, daemon=True)
             t.start()
             t.join()
             end = time.time()
             if ((end-start) < elapsed_time):
                 self.retry_count -= 1
+                logging.warning("Restarting the request processing thread...")
         raise BaseException("Failed to process requests due to:\n{e}\nShutting down the server.".format(e=self.exception))

@@ -2,6 +2,7 @@ import logging
 import threading
 import queue
 import os
+from sam import Sam
 
 request_queue = queue.Queue()
 finished_tasks = dict()
@@ -14,7 +15,8 @@ class GenerateEmbeddingRequest():
         self.out_path = out_path
         self.image = image
 
-def process_requests(sam):
+def process_requests():
+    sam = Sam()
     while True:
         req = request_queue.get(block=True)
         try:
