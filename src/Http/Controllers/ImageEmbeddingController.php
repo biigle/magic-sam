@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Biigle\Http\Controllers\Api\Controller;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
 use Biigle\Modules\MagicSam\Http\Requests\StoreEmbedding;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 class ImageEmbeddingController extends Controller
 {
@@ -33,24 +34,29 @@ class ImageEmbeddingController extends Controller
      */
     public function store(StoreEmbedding $request, $id)
     {
+        $userCacheKey = sprintf(config('magic_sam.user_job_count'), $request->user()->id);
         $jobCountKey = config('magic_sam.job_count_cache_key');
         $threshold = config('magic_sam.queue_threshold');
         $image = Image::findOrFail($id);
         $prefix = fragment_uuid_path($image->uuid);
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
-
         $extent = $request->input('extent');
         $excludedEmbId = $request->input('excludeEmbeddingId', 0);
-
         $embId = null;
         $embExtent = null;
+
         $emb = Embedding::getNearestEmbedding($id, $extent, $excludedEmbId);
+
+        $jobCount = Cache::get($userCacheKey, 0);
+        if (!$emb && $jobCount == 1) {
+            throw new TooManyRequestsHttpException("You already have a SAM job running. Please wait for the one to finish until you submit a new one.");
+        }
 
         if ($emb) {
             $embId = $emb->id;
             $embExtent = $emb->getExtent();
             $file = $disk->path("{$prefix}/" . $emb->filename);
-        } else if (Cache::get($jobCountKey, 0) <= $threshold) {
+        } else if (Cache::get($jobCountKey, 0) < $threshold) {
             $job = new GenerateEmbedding($image, $request);
             $emb = $job->handleSync();
 
