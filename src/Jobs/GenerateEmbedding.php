@@ -61,9 +61,11 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
         $this->image = $image;
         $this->user = $request->user();
         $this->extent = $request->input('extent');
-        $this->tiles = $request->input('tiles', []);
-        $this->tiledImageExtent = $request->input('tiledImageExtent', []);
-        $this->tileColumns = $request->input('columns', 0);
+        if ($image->tiled) {
+            $this->tiles = $request->input('tiles', []);
+            $this->tiledImageExtent = $request->input('tiledImageExtent', []);
+            $this->tileColumns = $request->input('columns', 0);
+        }
     }
 
     public function process()
