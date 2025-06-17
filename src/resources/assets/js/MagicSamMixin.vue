@@ -408,7 +408,7 @@ export default {
             let body = null;
 
             if (this.image.tiled) {
-                body = Object.assign({ extent: extent }, this.getTileDescriptions());
+                body = Object.assign({ extent: extent }, this.getImageTilesDescription());
             } else {
                 body = { extent: extent };
             }

@@ -38,14 +38,14 @@ abstract class AbstractGenerateEmbedding
     protected $embedding;
 
     /**
-     * Boolean that shows if job is processed asynchronously.
+     * Async job flag
      *
      * @var bool
      */
     protected $isAsync = true;
 
     /**
-     * Increment job counter in cache.
+     * Use cache before starting the job.
      *
      * @return void
      */
@@ -61,7 +61,7 @@ abstract class AbstractGenerateEmbedding
     }
 
     /**
-     * Decrement job counter in cache.
+     * Use cache before finishing the job.
      *
      * @return void
      */
@@ -76,6 +76,11 @@ abstract class AbstractGenerateEmbedding
         }
     }
 
+    /**
+     * Generate the embedding.
+     *
+     * @return void
+     */
     public function process()
     {
         // will be overriden by GenerateEmbedding
@@ -109,7 +114,7 @@ abstract class AbstractGenerateEmbedding
     }
 
     /**
-     * Handle embedding generation synchronously
+     * Handle embedding generation synchronously.
      * 
      * @return Embedding
      */
@@ -121,21 +126,28 @@ abstract class AbstractGenerateEmbedding
     }
 
     /**
-     * Decrement cache count
+     * Decrement cache count.
      *
-     * @param int $cacheKey
+     * @param int $key Cache key to use
      * 
      * @return void
      */
-    protected function decrementCacheCount($cacheKey)
+    protected function decrementCacheCount($key)
     {
-        if (Cache::get($cacheKey) > 0) {
-            Cache::decrement($cacheKey);
+        if (Cache::get($key) > 0) {
+            Cache::decrement($key);
         } else {
-            Cache::put($cacheKey, 0);
+            Cache::put($key, 0);
         }
     }
 
+    /**
+     * Increment cache count or add key if not present.
+     *
+     * @param mixed $key Cache key to use
+     *
+     * @return void
+     */
     protected function incrementCacheCount($key)
     {
         if (!Cache::has($key)) {

@@ -66,11 +66,6 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
         $this->tileColumns = $request->input('columns', 0);
     }
 
-    /**
-      * Process the job.
-      *
-      * @return void
-      */
     public function process()
     {
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
