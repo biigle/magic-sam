@@ -4,7 +4,6 @@ namespace Biigle\Modules\MagicSam\Jobs;
 
 use Exception;
 use FileCache;
-use Biigle\User;
 use Biigle\Image;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +16,8 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
 {
 
     /**
-     * Lower left and upper right corner of viewport
+     * Coordinates of viewport's lower left and upper right corner.
+     *
      * @var array
      */
     protected $extent;
@@ -30,14 +30,14 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
     protected $tiles;
 
     /**
-     * Extent of the tiles that are used to cover the viewport.
+     * Coordinate of the lower left tile's lower left corner and the upper right tile's upper right corner.
      *
      * @var array
      */
     protected $tiledImageExtent;
 
     /**
-     * Number of tiles used to cover the viewport horizontally
+     * Number of tiles used to cover the viewport horizontally.
      *
      * @var int
      */
@@ -54,7 +54,6 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
      * Create a new instance.
      *
      * @param Image $image
-     * @param User $user
      * @param Request $request
      */
     public function __construct(Image $image, Request $request)
@@ -109,14 +108,14 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
     /**
      * Generate the embedding.
      *
-     * @param string $embeddingFilename
-     * 
+     * @param string $embeddingFilename File name of the embedding
+     *
      * @return string embedding as binary
      */
     protected function generateEmbedding($embeddingFilename, $destPath)
     {
         return FileCache::getOnce($this->image, function ($file, $path) use ($embeddingFilename, $destPath) {
-            // (crop and) resize image
+            // Crop and resize image
             $image = $this->processImage($file, $path);
             // Contact the pyworker to generate the embedding
             $response = Http::withOptions([
@@ -135,6 +134,15 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
         });
     }
 
+    /**
+     * Generate an embedding for a tiled image.
+     *
+     * @param mixed $embeddingFilename File name of the embedding
+     * @param mixed $destPath Path where emebdding will be saved
+     * @throws \Exception if embedding couldn't be generated
+     *
+     * @return void
+     */
     protected function generateEmbeddingForTiledImage($embeddingFilename, $destPath)
     {
         $image = $this->createImageFromTiles();
@@ -153,6 +161,14 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
         }
     }
 
+    /**
+     * Process an image by cropping and resizing.
+     *
+     * @param mixed $image Image that should be processed
+     * @param mixed $path Cached image's path
+     *
+     * @return string Processed image
+     */
     protected function processImage($image, $path)
     {
         $format = pathinfo($image->filename, PATHINFO_EXTENSION);
@@ -173,17 +189,38 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
         ]);
     }
 
+    /**
+     * Check whether image section should be extracted from image.
+     *
+     * @param mixed $image Original image
+     *
+     * @return bool false if extent describes whole image, otherwise true
+     */
     protected function shouldCrop($image)
     {
         return !($this->extent[0] == 0 && $this->extent[1] == $image->height && $this->extent[2] == $image->width && $this->extent[3] == 0);
     }
 
+    /**
+     * Check whether image needs resizing.
+     *
+     * @param mixed $image (Cropped) image
+     *
+     * @return bool false if image's longest side equals the target size, otherwise true
+     */
     protected function shouldResize($image)
     {
         $targetSize = config('magic_sam.sam_target_size');
         return max($image->width, $image->height) != $targetSize;
     }
 
+    /**
+     * Extract image section from image.
+     *
+     * @param VipsImage $image Image that should be used for extraction
+     *
+     * @return VipsImage The cropped image
+     */
     protected function crop($image)
     {
         $width = $image->width;
@@ -206,6 +243,13 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
         return $image;
     }
 
+    /**
+     * Resizes image to model's target size.
+     *
+     * @param VipsImage $image The image to resize
+     *
+     * @return VipsImage The resized image
+     */
     protected function resize($image)
     {
         $width = $image->width;
@@ -230,6 +274,11 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
         return $image;
     }
 
+    /**
+     * Create image from tiles and process it.
+     *
+     * @return string Image buffer
+     */
     protected function createImageFromTiles()
     {
         $disk = Storage::disk(config('image.tiles.disk'));
