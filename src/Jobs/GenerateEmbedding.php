@@ -85,21 +85,25 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
 
         $emb->filename = $embFilename;
 
-        if (!$disk->exists($prefix)) {
-            $disk->makeDirectory($prefix);
-        }
+        try {
+            if (!$disk->exists($prefix)) {
+                $disk->makeDirectory($prefix);
+            }
 
-        $destPath = $disk->path("{$prefix}/{$embFilename}");
-        if ($this->image->tiled) {
-            $this->generateEmbeddingForTiledImage($embFilename, $destPath);
-        } else {
-            $this->generateEmbedding($embFilename, $destPath);
-        }
+            $destPath = $disk->path("{$prefix}/{$embFilename}");
+            if ($this->image->tiled) {
+                $this->generateEmbeddingForTiledImage($embFilename, $destPath);
+            } else {
+                $this->generateEmbedding($embFilename, $destPath);
+            }
 
-        $this->embedding = DB::transaction(function () use ($emb) {
-            $emb->save();
-            return $emb;
-        });
+            $this->embedding = DB::transaction(function () use ($emb) {
+                $emb->save();
+                return $emb;
+            });
+        } catch (Exception $e) {
+            throw new Exception("The image couldn't be processed by the Magic-Sam tool. Please retry later.");
+        }
     }
 
     /**
@@ -115,7 +119,7 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
             // Crop and resize image
             $image = $this->processImage($file, $path);
             // Contact the pyworker to generate the embedding
-            $response = Http::withOptions([
+            Http::withOptions([
                 'sink' => $destPath // stream response body to disk
             ])
                 ->attach(
@@ -123,11 +127,8 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
                     $image,
                     $file->filename
                 )
-                ->post('http://pyworker:8080/embedding', ['filename' => $embeddingFilename]);
-
-            if (!$response->successful()) {
-                throw new Exception("The image couldn't be processed by the Magic-Sam tool. Please try again.");
-            }
+                ->post('http://pyworker:8080/embedding', ['filename' => $embeddingFilename])
+                ->throw();
         });
     }
 
@@ -143,7 +144,7 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
     protected function generateEmbeddingForTiledImage($embeddingFilename, $destPath)
     {
         $image = $this->createImageFromTiles();
-        $response = Http::withOptions([
+        Http::withOptions([
             'sink' => $destPath // stream response body to disk
         ])
             ->attach(
@@ -151,11 +152,8 @@ class GenerateEmbedding extends AbstractGenerateEmbedding
                 $image,
                 $this->image->filename
             )
-            ->post('http://pyworker:8080/embedding', ['filename' => $embeddingFilename]);
-
-        if (!$response->successful()) {
-            throw new Exception("The image couldn't be processed by the Magic-Sam tool. Please try again.");
-        }
+            ->post('http://pyworker:8080/embedding', ['filename' => $embeddingFilename])
+            ->throw();
     }
 
     /**
