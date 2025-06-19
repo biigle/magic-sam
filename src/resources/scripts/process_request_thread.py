@@ -23,9 +23,7 @@ class ProcessRequestThread(threading.Thread):
         # restart thread if possible
         while self.retry_count > 0:
             start = time.time()
-            t = threading.Thread(target=self.target, daemon=True)
-            t.start()
-            t.join()
+            self.target()
             end = time.time()
             if ((end-start) < elapsed_time):
                 self.retry_count -= 1
