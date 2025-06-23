@@ -46,7 +46,7 @@ def finalize_request(exception):
     # remove tmp file of current request after it was sent successfully
     try:
         path = g.pop('tmp_file', None)
-        if os.path.exists(path):
+        if path and os.path.exists(path):
             os.remove(path)
     except Exception as e:
         logging.warning("Couldn't delete file '{f}'".format(f=path))
