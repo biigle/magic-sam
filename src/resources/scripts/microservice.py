@@ -52,4 +52,4 @@ def push_on_processing_queue(image, out_path):
             if os.path.exists(out_path):
                 os.remove(out_path)
 
-            return "Couldn't generate embedding", 400
+            return
