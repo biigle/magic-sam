@@ -55,7 +55,6 @@ class ImageEmbeddingController extends Controller
         if ($emb) {
             $embId = $emb->id;
             $embExtent = $emb->getExtent();
-            $file = $disk->path("{$prefix}/" . $emb->filename);
         } else if (Cache::get($jobCountKey, 0) < $threshold) {
             $job = new GenerateEmbedding($image, $request);
             $emb = $job->handleSync();
@@ -63,7 +62,6 @@ class ImageEmbeddingController extends Controller
             $embId = $emb->id;
             $embExtent = $emb->getExtent();
             $prefix = fragment_uuid_path($image->uuid);
-            $file = $disk->path("{$prefix}/" . $emb->filename);
         } else {
             Queue::connection(config('magic_sam.request_connection'))
                 ->pushOn(
@@ -72,6 +70,8 @@ class ImageEmbeddingController extends Controller
                 );
             return;
         }
+
+        $file = $disk->path("{$prefix}/{$emb->filename}");
 
         return response()->file($file, [
             'Content-Type' => 'application/octet-stream',
