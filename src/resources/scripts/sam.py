@@ -68,11 +68,13 @@ def download_checkpoint(url, path, timeout=60, chunk_size_kb=1024):
 def check_sam_arguments():
     is_pth_file = path.endswith('.pth')
     if (not url or not is_pth_file or not model_type or not device):
-        raise Exception("Couldn't initialize SAM model. Missing env-variables: {u}{p}{t}{d}".format(
+        msg = "Couldn't initialize SAM model. Missing env-variables: {u}{p}{t}{d}".format(
             u=MAGIC_SAM_MODEL_URL+', ' if not url else '',
             p=MAGIC_SAM_CHECKPOINT_PATH+', ' if not is_pth_file else '',
             t=MAGIC_SAM_MODEL_TYPE+', ' if not model_type else '',
-            d=MAGIC_SAM_DEVICE if not device else ''))
+            d=MAGIC_SAM_DEVICE if not device else '')
+        msg = ''.join(msg.rsplit(',', 1))
+        raise Exception(msg)
 
 class Sam(metaclass=Model):
     def __init__(self):
