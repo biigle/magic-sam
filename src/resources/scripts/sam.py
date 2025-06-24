@@ -40,10 +40,12 @@ def wait_on_checkpoint_download(path, size, total_size, timeout):
 def download_checkpoint(url, path, timeout=60, chunk_size_kb=1024):
     if os.path.exists(path):
         # check if checkpoint download is complete
-        total_size = int(requests.head(url).headers['Content-Length'])
-        size = os.path.getsize(path)
-        if not size == total_size:
-            wait_on_checkpoint_download(path, size, total_size, timeout)
+        size_request = requests.head(url)
+        if size_request.status_code == 200:
+            total_size = int(size_request.headers['Content-Length'])
+            size = os.path.getsize(path)
+            if not size == total_size:
+                wait_on_checkpoint_download(path, size, total_size, timeout)
         return
 
     dir, _ = os.path.split(path)
@@ -77,7 +79,10 @@ class Sam(metaclass=Model):
         check_sam_arguments()
         download_checkpoint(url, path)
         self.device = device
-        self.sam = sam_model_registry[model_type](checkpoint=path)
+        try:
+            self.sam = sam_model_registry[model_type](checkpoint=path)
+        except Exception as e:
+            raise Exception("Invalid checkpoint file. Couldn't initialize model.")
         self.sam.to(device=device)
 
     def generate_embedding(self, out_path, image):
