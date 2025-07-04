@@ -108,3 +108,4 @@ class Sam(metaclass=Model):
             image_embedding = self.sam.image_encoder(input_image).cpu().numpy()
 
         np.save(out_path, image_embedding)
+        image.close()
