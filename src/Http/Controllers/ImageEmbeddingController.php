@@ -45,6 +45,7 @@ class ImageEmbeddingController extends Controller
         $embId = null;
         $embExtent = null;
 
+        // TODO: Check whether requested image is a whole image, if so, skip this step
         $emb = Embedding::getNearestEmbedding($id, $extent, $excludedEmbId);
 
         $jobCount = Cache::get($userCacheKey, 0);
