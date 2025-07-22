@@ -114,7 +114,7 @@ class Embedding extends Model
                     ->whereRaw("? - x < ? AND ? > x", [$extent[0], $maxDistX, $extent[0]])
                     ->whereRaw("y - ? < ? AND y > ?", [$extent[1], $maxDistY, $extent[1]]);
             })
-            ->first(); // TODO: Look for emb whose center is nearest to the current embedding's center
+            ->first();
     }
 
 }
