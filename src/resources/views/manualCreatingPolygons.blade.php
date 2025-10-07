@@ -5,7 +5,7 @@
 </p>
 
 <p class="text-center">
-    <a href="{{asset('vendor/magic-sam/images/creating_annotations_magic_sam_1.jpg')}}"><img src="{{asset('vendor/magic-sam/images/creating_annotations_magic_sam_1.jpg')}}" width="33%"></a>
+    <a href="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_1.jpg')}}"><img src="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_1.jpg')}}" width="33%"></a>
 </p>
 
 <p>
@@ -17,6 +17,6 @@
 </p>
 
 <p class="text-center">
-    <a href="{{asset('vendor/magic-sam/images/creating_annotations_magic_sam_2.jpg')}}"><img src="{{asset('vendor/magic-sam/images/creating_annotations_magic_sam_2.jpg')}}" width="49%"></a>
-    <a href="{{asset('vendor/magic-sam/images/creating_annotations_magic_sam_3.jpg')}}"><img src="{{asset('vendor/magic-sam/images/creating_annotations_magic_sam_3.jpg')}}" width="49%"></a>
+    <a href="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_2.jpg')}}"><img src="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_2.jpg')}}" width="49%"></a>
+    <a href="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_3.jpg')}}"><img src="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_3.jpg')}}" width="49%"></a>
 </p>
