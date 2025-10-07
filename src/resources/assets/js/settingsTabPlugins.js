@@ -1,5 +1,5 @@
-import Plugin from './components/settingsTabPlugin';
-import {SettingsTabPlugins} from './import';
+import Plugin from './components/settingsTabPlugin.vue';
+import {SettingsTabPlugins} from './import.js';
 
 /**
  * The plugin component set the SAM throttle interval.

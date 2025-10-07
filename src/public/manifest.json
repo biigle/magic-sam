@@ -1,0 +1,13 @@
+{
+  "src/resources/assets/js/main.js": {
+    "file": "assets/main-CMsbNJwe.js",
+    "name": "main",
+    "src": "src/resources/assets/js/main.js",
+    "isEntry": true
+  },
+  "src/resources/assets/sass/main.scss": {
+    "file": "assets/main-BUYHXYJL.css",
+    "src": "src/resources/assets/sass/main.scss",
+    "isEntry": true
+  }
+}

@@ -1,14 +1,14 @@
 <script>
-import ImageEmbeddingApi from './api/image';
-import MagicSamInteraction from './ol/MagicSamInteraction';
-import {Echo} from './import';
-import {handleErrorResponse} from './import';
-import {Keyboard} from './import';
-import {Messages} from './import';
-import {Styles} from './import';
-import {Events} from './import';
-import { computeTileGroup, computeTotalTilesIndex } from './utils';
-import Polygon from '@biigle/ol/geom/Polygon.js';
+import ImageEmbeddingApi from './api/image.js';
+import MagicSamInteraction from './ol/MagicSamInteraction.js';
+import {Echo} from './import.js';
+import {handleErrorResponse} from './import.js';
+import {Keyboard} from './import.js';
+import {Messages} from './import.js';
+import {Styles} from './import.js';
+import {Events} from './import.js';
+import { computeTileGroup, computeTotalTilesIndex } from './utils.js';
+import Polygon from '@biigle/ol/geom/Polygon';
 import Feature from '@biigle/ol/Feature';
 import VectorLayer from '@biigle/ol/layer/Vector';
 import VectorSource from '@biigle/ol/source/Vector';
@@ -158,7 +158,7 @@ export default {
             this.map.addInteraction(magicSamInteraction);
         },
         processExtent(extent) {
-            // Images that are smaller than the target size should be processes only as a whole 
+            // Images that are smaller than the target size should be processes only as a whole
             if (this.image.width < this.targetSize || this.image.height < this.targetSize) {
                 return [0, this.image.height, this.image.width, 0];
             }
@@ -439,7 +439,7 @@ export default {
     },
     created() {
         this.targetSize = biigle.$require('magic-sam.sam_target_size');
-        Events.$on('settings.samThrottleInterval', this.setThrottleInterval);
+        Events.on('settings.samThrottleInterval', this.setThrottleInterval);
         Echo.getInstance().private(`user-${this.userId}`)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingAvailable', this.handleSamEmbeddingAvailable)
             .listen('.Biigle\\Modules\\MagicSam\\Events\\EmbeddingFailed', this.handleSamEmbeddingFailed);
