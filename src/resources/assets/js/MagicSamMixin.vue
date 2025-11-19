@@ -144,7 +144,7 @@ export default {
                 return;
             }
 
-            if (!this.hasSelectedLabel) {
+            if (!this.hasSelectedLabel && !this.labelbotIsActive) {
                 this.requireSelectedLabel();
                 return;
             }
