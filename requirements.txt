@@ -2,4 +2,4 @@ torch==2.9.*
 torchvision==0.24.*
 git+https://github.com/facebookresearch/segment-anything.git
 numpy==1.22.*
-Pillow==11.2.*
+Pillow==12.1.1
