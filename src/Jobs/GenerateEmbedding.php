@@ -121,7 +121,10 @@ class GenerateEmbedding
     protected function sendPyworkerRequest(string $buffer): string
     {
         $url = config('magic_sam.generate_embedding_worker_url');
-        $response = Http::withBody($buffer, 'image/png')->post($url);
+        $timeout = config('magic_sam.worker_timeout');
+        $response = Http::withBody($buffer, 'image/png')
+            ->timeout($timeout)
+            ->post($url);
         if ($response->successful()) {
             return $response->body();
         } else {

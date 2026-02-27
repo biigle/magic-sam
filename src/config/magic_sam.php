@@ -77,4 +77,9 @@ return [
     */
     'generate_embedding_worker_url' => env('MAGIC_SAM_GENERATE_EMBEDDING_WORKER_URL', 'http://magic-sam-pyworker'),
 
+    /*
+    | Request timeout in seconds for the GenerateEmbeddingWorker service.
+    */
+    'worker_timeout' => env('MAGIC_SAM_WORKER_TIMEOUT', 60),
+
 ];
