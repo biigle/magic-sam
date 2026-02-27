@@ -12,7 +12,10 @@ class ImageEmbeddingControllerTest extends ApiTestCase
 {
     public function testStore()
     {
-        config(['magic_sam.request_queue' => 'gpu-quick']);
+        config([
+            'magic_sam.request_queue' => 'quick',
+            'magic_sam.embedding_storage_disk' => 'test',
+        ]);
         Queue::fake();
         $image = Image::factory()->create(['volume_id' => $this->volume()->id]);
 
@@ -29,7 +32,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ->assertStatus(200)
             ->assertExactJson(['url' => null]);
 
-        Queue::assertPushedOn('gpu-quick', function (GenerateEmbedding $job) use ($image) {
+        Queue::assertPushedOn('quick', function (GenerateEmbedding $job) use ($image) {
             $this->assertEquals($image->id, $job->image->id);
             $this->assertEquals($this->guest()->id, $job->user->id);
 

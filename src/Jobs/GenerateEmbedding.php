@@ -9,10 +9,11 @@ use Biigle\User;
 use Exception;
 use FileCache;
 use Illuminate\Bus\Queueable;
-use Illuminate\Http\File as HttpFile;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use Jcupitt\Vips\Image as VipsImage;
 
 class GenerateEmbedding
 {
@@ -40,6 +41,14 @@ class GenerateEmbedding
     protected $deleteWhenMissingModels = true;
 
     /**
+     * The number of times the job may be attempted.
+     *
+     * We only try one because the failed event is sent and shown to the user
+     * immediately.
+     */
+    public $tries = 1;
+
+    /**
      * Create a new instance.
      *
      * @param Image $image
@@ -59,16 +68,11 @@ class GenerateEmbedding
     public function handle()
     {
         $filename = "{$this->image->id}.npy";
-        $outputPath = sys_get_temp_dir()."/{$filename}";
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
         try {
             if (!$disk->exists($filename)) {
-                try {
-                    $this->generateEmbedding($outputPath);
-                    $disk->putFileAs('', new HttpFile($outputPath), $filename);
-                } finally {
-                    File::delete($outputPath);
-                }
+                $embedding = $this->generateEmbedding($this->image);
+                $disk->put($filename, $embedding);
             }
 
             EmbeddingAvailable::dispatch($filename, $this->user);
@@ -80,61 +84,49 @@ class GenerateEmbedding
 
     /**
      * Generate the embedding.
-     *
-     * @param string $outputPath
      */
-    protected function generateEmbedding($outputPath)
+    protected function generateEmbedding(Image $image): string
     {
-        FileCache::getOnce($this->image, function ($file, $path) use ($outputPath) {
-            $checkpointUrl = config('magic_sam.model_url');
-            $checkpointPath = config('magic_sam.model_path');
-            $this->maybeDownloadCheckpoint($checkpointUrl, $checkpointPath);
-            $modelType = config('magic_sam.model_type');
-            $device = config('magic_sam.device');
-            $script = config('magic_sam.compute_embedding_script');
+        return FileCache::getOnce($image, function ($file, $path) {
+            $buffer = $this->getImageBufferForPyworker($path);
+            $embedding = $this->sendPyworkerRequest($buffer);
 
-            $this->python("{$script} '{$checkpointPath}' '{$modelType}' '{$device}' '{$path}' '{$outputPath}'");
+            return $embedding;
         });
     }
 
     /**
-     * Downloads the model checkpoint if they weren't downloaded yet.
-     *
-     * @param string $from
-     * @param string $to
+     * Get the byte string of the resized image for the Python worker.
      */
-    protected function maybeDownloadCheckpoint($from, $to)
+    protected function getImageBufferForPyworker(string $path): string
     {
-        if (!File::exists($to)) {
-            if (!File::exists(dirname($to))) {
-                File::makeDirectory(dirname($to), 0700, true, true);
-            }
-            $success = @copy($from, $to);
-
-            if (!$success) {
-                throw new Exception("Failed to download checkpoint from '{$from}'.");
-            }
+        $options = ['access' => 'sequential'];
+        // Make sure the image is in RGB format before sending it to the pyworker.
+        $image = VipsImage::newFromFile($path, $options)->colourspace('srgb');
+        if ($image->hasAlpha()) {
+            $image = $image->flatten();
         }
+
+        $inputSize = config('magic_sam.model_input_size');
+        $factor = $inputSize / max($image->width, $image->height);
+        $image = $image->resize($factor);
+
+        return $image->writeToBuffer('.png');
     }
 
     /**
-     * Execute a Python command.
-     *
-     * @param string $command
-     * @throws Exception On a non-zero exit code.
-     *
-     * @return string
+     * Send the scaled-down PNG image to the Python worker and return the embedding npy
+     * file as binary blob.
      */
-    protected function python($command)
+    protected function sendPyworkerRequest(string $buffer): string
     {
-        $code = 0;
-        $lines = [];
-        $python = config('magic_sam.python');
-        exec("{$python} -u {$command} 2>&1", $lines, $code);
-
-        if ($code !== 0) {
-            $lines = implode("\n", $lines);
-            throw new Exception("Error while executing python command '{$command}':\n{$lines}", $code);
+        $url = config('magic_sam.generate_embedding_worker_url');
+        $response = Http::withBody($buffer, 'image/png')->post($url);
+        if ($response->successful()) {
+            return $response->body();
+        } else {
+            $pyException = $response->body();
+            throw new Exception("Error in pyworker:\n {$pyException}");
         }
     }
 }
