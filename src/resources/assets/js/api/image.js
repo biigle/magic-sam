@@ -5,4 +5,10 @@ import {Resource} from '../import.js';
  *
  * resource.save({id: 1}, {}).then(...);
  */
-export default Resource('api/v1/images{/id}/sam-embedding');
+export default Resource('api/v1/images{/id}/sam-embedding', {}, {
+    save: {
+        url: 'api/v1/images{/id}/sam-embedding',
+        method: 'post',
+        responseType: 'blob'
+    }
+});

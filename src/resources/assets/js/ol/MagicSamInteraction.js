@@ -77,6 +77,7 @@ class MagicSamInteraction extends PointerInteraction {
         this.samSizeTensor = null;
         this.imageSamScale = null;
         this.isDragging = false;
+        this.extent = null;
 
         // wasm needs to be present in the assets folder.
         this.initPromise = InferenceSession.create(options.onnxUrl, {
@@ -93,23 +94,44 @@ class MagicSamInteraction extends PointerInteraction {
         return this.throttleInterval;
     }
 
-    updateEmbedding(image, url) {
-        this.imageSizeTensor = new Tensor("float32", [image.height, image.width]);
-        this.imageSamScale = LONG_SIDE_LENGTH / Math.max(image.height, image.width);
+    updateEmbedding(embeddingURLorObject, extent) {
+        let width = Math.floor(Math.abs(extent[2] - extent[0]));
+        let height = Math.floor(Math.abs(extent[3] - extent[1]));
+
+        this.imageSizeTensor = new Tensor("float32", [height, width]);
+        this.imageSamScale = LONG_SIDE_LENGTH / Math.max(height, width);
         this.samSizeTensor = new Tensor("float32", [
-            Math.round(image.height * this.imageSamScale),
-            Math.round(image.width * this.imageSamScale),
+            Math.floor(height * this.imageSamScale),
+            Math.floor(width * this.imageSamScale),
         ]);
+
+        this.extent = extent;
 
         let npy = new npyjs();
 
         // Maybe the model is not initialized at this point so we have to wait for that,
         // too.
-        return Promise.all([npy.load(url), this.initPromise])
-            .then(([npArray, ]) => {
-                this.embedding = new Tensor("float32", npArray.data, npArray.shape);
-                this._runModelWarmup();
-            });
+        let promise = null;
+        if (typeof embeddingURLorObject === "string") {
+            promise = Promise.all([npy.load(embeddingURLorObject), this.initPromise])
+                .then(([npArray,]) => {
+                    this.embedding = new Tensor("float32", npArray.data, npArray.shape);
+                    this._runModelWarmup();
+                });
+        } else {
+            promise = Promise.all([this.initPromise])
+                .then(() => {
+                    if (embeddingURLorObject instanceof ArrayBuffer) {
+                        let npArray = npy.parse(embeddingURLorObject);
+                        this.embedding = new Tensor("float32", npArray.data, npArray.shape);
+                    } else {
+                        this.embedding = embeddingURLorObject;
+                    }
+                    this._runModelWarmup();
+                });
+        }
+
+        return promise;
     }
 
     handleUpEvent() {
@@ -154,9 +176,12 @@ class MagicSamInteraction extends PointerInteraction {
         // Do this not faster than once per second.
         throttle(() => {
             let [height, ] = this.imageSizeTensor.data;
+
             let pointCoords = new Float32Array([
-                e.coordinate[0] * this.imageSamScale,
-                (height - e.coordinate[1]) * this.imageSamScale,
+                ((e.coordinate[0] - this.extent[0]) * this.imageSamScale),
+                // Move origin to image section origin and
+                // add y coordinate because y-axis is inverted
+                (((height - e.coordinate[1]) + this.extent[1]) * this.imageSamScale),
                 // Add in the extra point when only clicks and no box.
                 // The extra point is at (0, 0) with label -1.
                 0,
@@ -169,6 +194,10 @@ class MagicSamInteraction extends PointerInteraction {
             this.model.run(feeds).then(this._processInferenceResult.bind(this, pointCoords));
         }, this.throttleInterval, 'magic-sam-move');
 
+    }
+
+    getSketchFeatureBoundingBox() {
+        return this.sketchFeature.getGeometry().getExtent();
     }
 
     /**
@@ -246,8 +275,9 @@ class MagicSamInteraction extends PointerInteraction {
         let points = contour.points.map(point => [point.x, point.y])
             // Scale up to original size.
             .map(([x, y]) => [x / this.imageSamScale, y / this.imageSamScale])
-            // Invert y axis for OpenLayers coordinates.
-            .map(([x, y]) => [x, height - y]);
+            // Project points into image section and
+            // invert y axis for OpenLayers coordinates.
+            .map(([x, y]) => [x + this.extent[0], (height - y) + this.extent[1]]);
 
         if (this.sketchFeature) {
             this.sketchFeature.getGeometry().setCoordinates([points]);
@@ -261,8 +291,14 @@ class MagicSamInteraction extends PointerInteraction {
         // This happens if the sketch feature was newly created (above) or if an annotation
         // was created from the feature (which may also remove the sketch from its source).
         if (!this.sketchSource.hasFeature(this.sketchFeature)) {
+            this.dispatchEvent({ type: 'drawstart' });
+            this.sketchSource.clear();
             this.sketchSource.addFeature(this.sketchFeature);
         }
+    }
+
+    getCurrentEmbeddingTensor(){
+        return this.embedding;
     }
 
 }

@@ -91,4 +91,29 @@ return [
      */
     'prune_age_days' => env('MAGIC_SAM_PRUNE_AGE_DAYS', 30),
 
+    /*
+     | Threshold that determines when jobs should be queued rather than executed immediately
+    */
+    'queue_threshold' => env('MAGIC_SAM_QUEUE_THRESHOLD', 2),
+
+    /*
+     | Cache key for job count
+    */
+    'job_count_cache_key' => 'job_count',
+
+    /*
+    | Cache key for user job counts
+   */
+    'user_job_count' => 'embedding-generation-%u',
+
+    /*
+     | Factor that determines the image section size limit
+    */
+    'image_section_max_size_factor' => 0.31,
+
+    /*
+    | Lower size limit for images processed by magic-sam
+    */
+    'sam_target_size' => env('MAGIC_SAM_TARGET_SIZE', 1024),
+
 ];
