@@ -11,7 +11,6 @@ import numpy as np
 import os
 import signal
 import sys
-import time
 import traceback
 import urllib.request
 
@@ -113,7 +112,6 @@ def worker():
             continue
 
         try:
-            # Open image and convert to RGB
             image = Image.open(request_item.data)
 
             # Process with SAM
