@@ -17,35 +17,10 @@ return [
     'request_connection' => env('MAGIC_SAM_REQUEST_CONNECTION', env('QUEUE_CONNECTION', env('QUEUE_DRIVER', 'sync'))),
 
     /*
-    | Path to the Python executable.
-    */
-    'python' => env('MAGIC_SAM_PYTHON', '/usr/bin/python3'),
-
-    /*
-    | Path to the compute embedding script.
-    */
-    'compute_embedding_script' => __DIR__.'/../resources/scripts/compute_embedding.py',
-
-    /*
-    | The device to compute the SAM embedding on.
-    |
-    | Devices: cpu, cuda
-    */
-    'device' => env('MAGIC_SAM_DEVICE', 'cpu'),
-
-    /*
-    | URL from which to download the model checkpoint.
-    |
-    | Important: The model checkpoint mst match with the ONNX file (see below)!
-    |
-    | See: https://github.com/facebookresearch/segment-anything#model-checkpoints
-    */
-    'model_url' => env('MAGIC_SAM_MODEL_URL', 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth'),
-
-    /*
     | Model ONNX file.
     |
-    | Important: The ONNX file must match with the model checkpoint (see above)!
+    | Important: The ONNX file must match with the model type and checkpoint (see Docker
+    | Compose configuration)!
     |
     | Available files are:
     |    - sam_vit_h_4b8939.quantized.onnx
@@ -86,9 +61,25 @@ return [
     'model_path' => storage_path('magic_sam').'/sam_checkpoint.pth',
 
     /*
+     | Size in pixels of the longest edge that the SAM model expects of input images.
+     */
+    'model_input_size' => env('MAGIC_SAM_MODEL_INPUT_SIZE', 1024),
+
+    /*
      | Specifies the time in days after which an image embedding file will be deleted
      | again.
      */
     'prune_age_days' => env('MAGIC_SAM_PRUNE_AGE_DAYS', 30),
+
+    /*
+    | URL to the GenerateEmbeddingWorker service. This should be set to the name of the
+    | Docker Compose service running this script.
+    */
+    'generate_embedding_worker_url' => env('MAGIC_SAM_GENERATE_EMBEDDING_WORKER_URL', 'http://magic-sam-pyworker'),
+
+    /*
+    | Request timeout in seconds for the GenerateEmbeddingWorker service.
+    */
+    'worker_timeout' => env('MAGIC_SAM_WORKER_TIMEOUT', 60),
 
 ];

@@ -24,18 +24,12 @@ class GenerateEmbeddingTest extends TestCase
         $image = Image::factory()->create();
         $disk->put('files/test-image.jpg', 'abc');
         $user = User::factory()->create();
-        $outputFile = sys_get_temp_dir()."/{$image->id}.npy";
         $job = new GenerateEmbeddingStub($image, $user);
 
-        try {
-            File::put($outputFile, 'abc');
-            $job->handle();
-            $disk->assertExists("{$image->id}.npy");
-        } finally {
-            File::delete($outputFile);
-        }
-
+        $job->handle();
+        $this->assertEquals('response', $disk->get("{$image->id}.npy"));
         $this->assertTrue($job->pythonCalled);
+
         Event::assertDispatched(function (EmbeddingAvailable $event) use ($user, $image) {
             $this->assertEquals($user->id, $event->user->id);
             $this->assertEquals("{$image->id}.npy", $event->filename);
@@ -99,16 +93,19 @@ class GenerateEmbeddingStub extends GenerateEmbedding
     public $pythonCalled = false;
     public $throw = false;
 
-    protected function python($command)
+    protected function getImageBufferForPyworker(string $path): string
     {
-        $this->pythonCalled = true;
-        if ($this->throw) {
-            throw new Exception('');
-        }
+        return 'buffer';
     }
 
-    protected function maybeDownloadCheckpoint($from, $to)
+    protected function sendPyworkerRequest(string $buffer): string
     {
-        //
+        if ($this->throw) {
+            throw new Exception();
+        }
+
+        $this->pythonCalled = true;
+
+        return 'response';
     }
 }
