@@ -10,6 +10,7 @@ use Exception;
 use FileCache;
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
@@ -79,6 +80,8 @@ class GenerateEmbedding
         } catch (Exception $e) {
             EmbeddingFailed::dispatch($this->user);
             throw $e;
+        } finally {
+            $this->decrementPendingJobsCounter();
         }
     }
 
@@ -130,6 +133,27 @@ class GenerateEmbedding
         } else {
             $pyException = $response->body();
             throw new Exception("Error in pyworker:\n {$pyException}");
+        }
+    }
+
+    /**
+     * Get the cache key for tracking pending jobs for a user.
+     */
+    public static function getPendingJobsCacheKey(User $user): string
+    {
+        return "magic_sam.pending_jobs.{$user->id}";
+    }
+
+    /**
+     * Decrement the pending jobs counter for the user.
+     */
+    protected function decrementPendingJobsCounter(): void
+    {
+        $cacheKey = static::getPendingJobsCacheKey($this->user);
+        Cache::decrement($cacheKey);
+
+        if (Cache::get($cacheKey, 0) <= 0) {
+            Cache::forget($cacheKey);
         }
     }
 }

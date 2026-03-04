@@ -8,6 +8,7 @@ use Biigle\Modules\MagicSam\Events\EmbeddingFailed;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
 use Biigle\User;
 use Exception;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -85,6 +86,69 @@ class GenerateEmbeddingTest extends TestCase
 
             return true;
         });
+    }
+
+    public function testHandleDecrementsCounter()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+        $job = new GenerateEmbeddingStub($image, $user);
+
+        $cacheKey = GenerateEmbedding::getPendingJobsCacheKey($user);
+        Cache::put($cacheKey, 3);
+
+        $job->handle();
+
+        $this->assertEquals(2, Cache::get($cacheKey));
+    }
+
+    public function testHandleDecrementsCounterOnException()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+        $job = new GenerateEmbeddingStub($image, $user);
+        $job->throw = true;
+
+        $cacheKey = GenerateEmbedding::getPendingJobsCacheKey($user);
+        Cache::put($cacheKey, 3);
+
+        try {
+            $job->handle();
+            $this->fail('Expected an exception');
+        } catch (Exception $e) {
+            // Expected
+        }
+
+        $this->assertEquals(2, Cache::get($cacheKey));
+    }
+
+    public function testHandleDeletesCacheKeyWhenZero()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+        $job = new GenerateEmbeddingStub($image, $user);
+
+        $cacheKey = GenerateEmbedding::getPendingJobsCacheKey($user);
+        Cache::put($cacheKey, 1);
+
+        $job->handle();
+
+        $this->assertFalse(Cache::has($cacheKey));
     }
 }
 

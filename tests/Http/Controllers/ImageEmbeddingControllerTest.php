@@ -5,6 +5,7 @@ namespace Biigle\Tests\Modules\MagicSam\Http\Controllers;
 use ApiTestCase;
 use Biigle\Image;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -54,5 +55,41 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ->assertStatus(200)
             ->assertJsonPath('url', fn ($url) => !is_null($url));
         Queue::assertNothingPushed();
+    }
+
+    public function testStoreRateLimit()
+    {
+        config([
+            'magic_sam.embedding_storage_disk' => 'test',
+            'magic_sam.max_parallel_jobs_per_user' => 2,
+        ]);
+        Queue::fake();
+        Cache::flush();
+
+        $image1 = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'filename' => 'test-image-1.jpg',
+        ]);
+        $image2 = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'filename' => 'test-image-2.jpg',
+        ]);
+        $image3 = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'filename' => 'test-image-3.jpg',
+        ]);
+
+        $this->beGuest();
+
+        $this->postJson("/api/v1/images/{$image1->id}/sam-embedding")
+            ->assertStatus(200);
+
+        $this->postJson("/api/v1/images/{$image2->id}/sam-embedding")
+            ->assertStatus(200);
+
+        $this->postJson("/api/v1/images/{$image3->id}/sam-embedding")
+            ->assertStatus(429);
+
+        Queue::assertPushed(GenerateEmbedding::class, 2);
     }
 }

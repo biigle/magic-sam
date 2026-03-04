@@ -82,4 +82,9 @@ return [
     */
     'worker_timeout' => env('MAGIC_SAM_WORKER_TIMEOUT', 60),
 
+    /*
+    | Maximum number of parallel GenerateEmbedding jobs per user.
+    */
+    'max_parallel_jobs_per_user' => env('MAGIC_SAM_MAX_PARALLEL_JOBS_PER_USER', 1),
+
 ];

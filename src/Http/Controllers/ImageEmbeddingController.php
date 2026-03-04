@@ -6,8 +6,10 @@ use Biigle\Http\Controllers\Api\Controller;
 use Biigle\Image;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 class ImageEmbeddingController extends Controller
 {
@@ -38,21 +40,34 @@ class ImageEmbeddingController extends Controller
 
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
         $filename = "{$image->id}.npy";
-        $url = null;
+
         if ($disk->exists($filename)) {
             if ($disk->providesTemporaryUrls()) {
                 $url = $disk->temporaryUrl($filename, now()->addHour());
             } else {
                 $url = $disk->url($filename);
             }
-        } else {
-            Queue::connection(config('magic_sam.request_connection'))
-                ->pushOn(
-                    config('magic_sam.request_queue'),
-                    new GenerateEmbedding($image, $request->user())
-                );
+
+            return ['url' => $url];
         }
 
-        return ['url' => $url];
+        $user = $request->user();
+        $cacheKey = GenerateEmbedding::getPendingJobsCacheKey($user);
+        $maxParallelJobs = config('magic_sam.max_parallel_jobs_per_user');
+        $currentCount = Cache::get($cacheKey, 0);
+
+        if ($currentCount >= $maxParallelJobs) {
+            throw new TooManyRequestsHttpException(message: "You already have a SAM job running. Please wait for the one to finish until you submit a new one.");
+        }
+
+        Cache::increment($cacheKey);
+
+        Queue::connection(config('magic_sam.request_connection'))
+            ->pushOn(
+                config('magic_sam.request_queue'),
+                new GenerateEmbedding($image, $user)
+            );
+
+        return ['url' => null];
     }
 }
