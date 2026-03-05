@@ -150,6 +150,73 @@ class GenerateEmbeddingTest extends TestCase
 
         $this->assertFalse(Cache::has($cacheKey));
     }
+
+    public function testHandleWithExtent()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+
+        $extent = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
+        $job = new GenerateEmbeddingStub($image, $user, $extent);
+
+        $job->handle();
+
+        $expectedFilename = "{$image->id}/100_200_1024_1024.npy";
+        $this->assertEquals('response', $disk->get($expectedFilename));
+        $this->assertTrue($job->pythonCalled);
+
+        Event::assertDispatched(function (EmbeddingAvailable $event) use ($user, $image, $extent) {
+            $this->assertEquals($user->id, $event->user->id);
+            $this->assertEquals("{$image->id}/100_200_1024_1024.npy", $event->filename);
+            $this->assertEquals($extent, $event->extent);
+
+            return true;
+        });
+    }
+
+    public function testHandleWithExtentExists()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $disk->put("{$image->id}/100_200_1024_1024.npy", 'existing');
+        $user = User::factory()->create();
+
+        $extent = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
+        $job = new GenerateEmbeddingStub($image, $user, $extent);
+
+        $job->handle();
+        $this->assertFalse($job->pythonCalled);
+
+        Event::assertDispatched(function (EmbeddingAvailable $event) use ($extent) {
+            $this->assertEquals($extent, $event->extent);
+
+            return true;
+        });
+    }
+
+    public function testGetFilename()
+    {
+        $image = Image::factory()->create();
+        $user = User::factory()->create();
+
+        // Without extent
+        $job = new GenerateEmbedding($image, $user);
+        $this->assertEquals("{$image->id}.npy", $job->getFilename());
+
+        // With extent
+        $extent = ['x' => 50, 'y' => 75, 'width' => 512, 'height' => 512];
+        $job = new GenerateEmbedding($image, $user, $extent);
+        $this->assertEquals("{$image->id}/50_75_512_512.npy", $job->getFilename());
+    }
 }
 
 class GenerateEmbeddingStub extends GenerateEmbedding
