@@ -69,12 +69,16 @@ class StoreImageEmbeddingRequest extends FormRequest
                 'height' => (int) $this->input('height'),
             ];
 
-            // Validate starting position is within image bounds
-            if ($extent['x'] >= $this->image->width || $extent['y'] >= $this->image->height) {
-                $validator->errors()->add('extent', 'Extent starting position is outside image bounds.');
+            // Validate extent is fully within image bounds
+            if (
+                $extent['x'] >= $this->image->width ||
+                $extent['y'] >= $this->image->height ||
+                $extent['x'] + $extent['width'] > $this->image->width ||
+                $extent['y'] + $extent['height'] > $this->image->height
+            ) {
+                $validator->errors()->add('extent', 'Extent is outside image bounds.');
             } else {
-                // Expand and clamp extent if needed
-                $this->extent = $this->expandExtent($extent);
+                $this->extent = $extent;
             }
         });
     }
@@ -103,37 +107,5 @@ class StoreImageEmbeddingRequest extends FormRequest
     public function hasExtent(): bool
     {
         return $this->has('x') || $this->has('y') || $this->has('width') || $this->has('height');
-    }
-
-    /**
-     * Expand extent to minimum model input size if needed.
-     */
-    protected function expandExtent(array $extent): array
-    {
-        $minSize = config('magic_sam.model_input_size');
-
-        // Expand width if needed (centered)
-        if ($extent['width'] < $minSize) {
-            $expand = $minSize - $extent['width'];
-            $extent['x'] = max(0, $extent['x'] - intval($expand / 2));
-            $extent['width'] = min($minSize, $this->image->width);
-        }
-
-        // Expand height if needed (centered)
-        if ($extent['height'] < $minSize) {
-            $expand = $minSize - $extent['height'];
-            $extent['y'] = max(0, $extent['y'] - intval($expand / 2));
-            $extent['height'] = min($minSize, $this->image->height);
-        }
-
-        // Clamp to image bounds
-        if ($extent['x'] + $extent['width'] > $this->image->width) {
-            $extent['x'] = max(0, $this->image->width - $extent['width']);
-        }
-        if ($extent['y'] + $extent['height'] > $this->image->height) {
-            $extent['y'] = max(0, $this->image->height - $extent['height']);
-        }
-
-        return $extent;
     }
 }

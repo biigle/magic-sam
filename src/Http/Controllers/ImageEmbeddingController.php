@@ -44,17 +44,17 @@ class ImageEmbeddingController extends Controller
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
 
         // Check if a matching embedding already exists.
-        $filename = $this->findCoveringEmbedding($image, $disk, $extent);
-        if ($filename) {
+        $result = $this->findCoveringEmbedding($image, $disk, $extent);
+        if ($result) {
             if ($disk->providesTemporaryUrls()) {
-                $url = $disk->temporaryUrl($filename, now()->addHour());
+                $url = $disk->temporaryUrl($result['filename'], now()->addHour());
             } else {
-                $url = $disk->url($filename);
+                $url = $disk->url($result['filename']);
             }
 
             $response = ['url' => $url];
-            if ($extent) {
-                $response['extent'] = $extent;
+            if ($result['extent']) {
+                $response['extent'] = $result['extent'];
             }
 
             return $response;
@@ -72,6 +72,10 @@ class ImageEmbeddingController extends Controller
 
         Cache::increment($cacheKey);
 
+        if ($extent) {
+            $extent = $this->expandExtent($image, $extent);
+        }
+
         Queue::connection(config('magic_sam.request_connection'))
             ->pushOn(
                 config('magic_sam.request_queue'),
@@ -88,14 +92,16 @@ class ImageEmbeddingController extends Controller
 
     /**
      * Find an existing extent-based embedding that covers the requested extent.
+     *
+     * @return array|null ['filename' => string, 'extent' => array|null]
      */
-    protected function findCoveringEmbedding(Image $image, $disk, ?array $extent): ?string
+    protected function findCoveringEmbedding(Image $image, $disk, ?array $extent): ?array
     {
         // Without extent the user requests the embedding for the whole image.
         if (is_null($extent)) {
             $filename = "{$image->id}.npy";
 
-            return $disk->exists($filename) ? $filename : null;
+            return $disk->exists($filename) ? ['filename' => $filename, 'extent' => null] : null;
         }
 
 
@@ -128,10 +134,42 @@ class ImageEmbeddingController extends Controller
                 $cached['x'] + $cached['width'] >= $extent['x'] + $extent['width'] &&
                 $cached['y'] + $cached['height'] >= $extent['y'] + $extent['height']) {
 
-                return $file;
+                return ['filename' => $file, 'extent' => $cached];
             }
         }
 
         return null;
+    }
+
+    /**
+     * Expand extent to minimum model input size if needed.
+     */
+    protected function expandExtent(Image $image, array $extent): array
+    {
+        $minSize = config('magic_sam.model_input_size');
+
+        // Expand width if needed (centered)
+        if ($extent['width'] < $minSize) {
+            $expand = $minSize - $extent['width'];
+            $extent['x'] = max(0, $extent['x'] - intval($expand / 2));
+            $extent['width'] = min($minSize, $image->width);
+        }
+
+        // Expand height if needed (centered)
+        if ($extent['height'] < $minSize) {
+            $expand = $minSize - $extent['height'];
+            $extent['y'] = max(0, $extent['y'] - intval($expand / 2));
+            $extent['height'] = min($minSize, $image->height);
+        }
+
+        // Clamp to image bounds
+        if ($extent['x'] + $extent['width'] > $image->width) {
+            $extent['x'] = max(0, $image->width - $extent['width']);
+        }
+        if ($extent['y'] + $extent['height'] > $image->height) {
+            $extent['y'] = max(0, $image->height - $extent['height']);
+        }
+
+        return $extent;
     }
 }

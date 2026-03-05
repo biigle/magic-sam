@@ -198,6 +198,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
 
         $this->beEditor();
         // Request smaller extent within the existing embedding
+        // Should return the cached extent, not the requested extent
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 100,
@@ -206,7 +207,11 @@ class ImageEmbeddingControllerTest extends ApiTestCase
                 'height' => 500,
             ])
             ->assertStatus(200)
-            ->assertJsonPath('url', fn ($url) => !is_null($url));
+            ->assertJsonPath('url', fn ($url) => !is_null($url))
+            ->assertJsonPath('extent.x', 0)
+            ->assertJsonPath('extent.y', 0)
+            ->assertJsonPath('extent.width', 1024)
+            ->assertJsonPath('extent.height', 1024);
 
         Queue::assertNothingPushed();
     }
@@ -306,13 +311,13 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         ]);
 
         $this->beEditor();
-        // Request extent that extends beyond image edge
+        // Request extent at edge that will be expanded and clamped
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 900,
                 'y' => 900,
-                'width' => 200,
-                'height' => 200,
+                'width' => 100,
+                'height' => 100,
             ])
             ->assertStatus(200)
             ->assertJson([
@@ -326,7 +331,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ]);
 
         Queue::assertPushed(function (GenerateEmbedding $job) {
-            // Extent should be clamped to fit within image
+            // Extent should be expanded and clamped to fit within image
             $this->assertEquals([
                 'x' => 0,
                 'y' => 0,
@@ -363,6 +368,37 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             'y' => 1000,
             'width' => 100,
             'height' => 100,
+        ])->assertStatus(422);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function testStoreWithExtentEndOutOfBounds()
+    {
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+        Queue::fake();
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'width' => 1000,
+            'height' => 1000,
+        ]);
+
+        $this->beEditor();
+        // Extent extends beyond image width
+        $this->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+            'x' => 900,
+            'y' => 500,
+            'width' => 101,
+            'height' => 100,
+        ])->assertStatus(422);
+
+        // Extent extends beyond image height
+        $this->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+            'x' => 500,
+            'y' => 900,
+            'width' => 100,
+            'height' => 101,
         ])->assertStatus(422);
 
         Queue::assertNothingPushed();
