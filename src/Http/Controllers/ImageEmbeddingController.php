@@ -40,11 +40,14 @@ class ImageEmbeddingController extends Controller
     public function store(StoreImageEmbeddingRequest $request)
     {
         $image = $request->getImage();
-        $extent = $request->getExtent();
+        $originalExtent = $request->getExtent();
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
 
+        // Expand extent to determine target resolution
+        $expandedExtent = $originalExtent ? $this->expandExtent($image, $originalExtent) : null;
+
         // Check if a matching embedding already exists.
-        $result = $this->findCoveringEmbedding($image, $disk, $extent);
+        $result = $this->findCoveringEmbedding($image, $disk, $originalExtent, $expandedExtent);
         if ($result) {
             if ($disk->providesTemporaryUrls()) {
                 $url = $disk->temporaryUrl($result['filename'], now()->addHour());
@@ -72,36 +75,41 @@ class ImageEmbeddingController extends Controller
 
         Cache::increment($cacheKey);
 
-        if ($extent) {
-            $extent = $this->expandExtent($image, $extent);
-        }
-
         Queue::connection(config('magic_sam.request_connection'))
             ->pushOn(
                 config('magic_sam.request_queue'),
-                new GenerateEmbedding($image, $user, $extent)
+                new GenerateEmbedding($image, $user, $expandedExtent)
             );
 
         $response = ['url' => null];
-        if ($extent) {
-            $response['extent'] = $extent;
+        if ($expandedExtent) {
+            $response['extent'] = $expandedExtent;
         }
 
         return $response;
     }
 
     /**
-     * Find an existing extent-based embedding that covers the requested extent.
+     * Find an existing extent-based embedding that covers the requested extent
+     * with resolution similar to the target expanded extent.
      *
+     * @param Image $image
+     * @param $disk Storage disk
+     * @param array|null $originalExtent The original requested extent
+     * @param array|null $expandedExtent The expanded extent (target resolution)
      * @return array|null ['filename' => string, 'extent' => array|null]
      */
-    protected function findCoveringEmbedding(Image $image, $disk, ?array $extent): ?array
+    protected function findCoveringEmbedding(Image $image, $disk, ?array $originalExtent, ?array $expandedExtent): ?array
     {
         // Without extent the user requests the embedding for the whole image.
-        if (is_null($extent)) {
+        if (is_null($originalExtent)) {
             $filename = "{$image->id}.npy";
 
-            return $disk->exists($filename) ? ['filename' => $filename, 'extent' => null] : null;
+            if ($disk->exists($filename)) {
+                return ['filename' => $filename, 'extent' => null];
+            }
+
+            return null;
         }
 
 
@@ -112,7 +120,16 @@ class ImageEmbeddingController extends Controller
             return null;
         }
 
-        $minSize = config('magic_sam.model_input_size');
+        // Only cached embeddings are considered that have a width and height similar
+        // to the (expanded) requested extent, within the configured tolerance.
+        $threshold = config('magic_sam.resolution_threshold');
+        $minWidth = $expandedExtent['width'] * (1 - $threshold);
+        $maxWidth = $expandedExtent['width'] * (1 + $threshold);
+        $minHeight = $expandedExtent['height'] * (1 - $threshold);
+        $maxHeight = $expandedExtent['height'] * (1 + $threshold);
+
+        $bestMatch = null;
+        $smallestArea = PHP_INT_MAX;
 
         foreach ($disk->files($directory) as $file) {
             $basename = pathinfo($file, PATHINFO_FILENAME);
@@ -128,17 +145,35 @@ class ImageEmbeddingController extends Controller
                 'height' => (int) $parts[3],
             ];
 
-            // Check if cached fully covers requested
-            if ($cached['x'] <= $extent['x'] &&
-                $cached['y'] <= $extent['y'] &&
-                $cached['x'] + $cached['width'] >= $extent['x'] + $extent['width'] &&
-                $cached['y'] + $cached['height'] >= $extent['y'] + $extent['height']) {
+            // Ignore if cached extent does not cover requested extent.
+            if (
+                $cached['x'] > $originalExtent['x'] ||
+                $cached['y'] > $originalExtent['y'] ||
+                $cached['x'] + $cached['width'] < $originalExtent['x'] + $originalExtent['width'] ||
+                $cached['y'] + $cached['height'] < $originalExtent['y'] + $originalExtent['height']
+            ) {
+                continue;
+            }
 
-                return ['filename' => $file, 'extent' => $cached];
+            // Ignore if cached size is not similar to requested size.
+            if (
+                $cached['width'] < $minWidth ||
+                $cached['width'] > $maxWidth ||
+                $cached['height'] < $minHeight ||
+                $cached['height'] > $maxHeight
+            ) {
+                continue;
+            }
+
+            // Prefer smallest size (i.e. highest resolution).
+            $area = $cached['width'] * $cached['height'];
+            if ($area < $smallestArea) {
+                $smallestArea = $area;
+                $bestMatch = ['filename' => $file, 'extent' => $cached];
             }
         }
 
-        return null;
+        return $bestMatch;
     }
 
     /**

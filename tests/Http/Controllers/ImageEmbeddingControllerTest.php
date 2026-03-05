@@ -403,4 +403,116 @@ class ImageEmbeddingControllerTest extends ApiTestCase
 
         Queue::assertNothingPushed();
     }
+
+    public function testStoreWithExtentResolutionThreshold()
+    {
+        Queue::fake();
+        config([
+            'magic_sam.embedding_storage_disk' => 'test',
+            'magic_sam.model_input_size' => 1024,
+            'magic_sam.resolution_threshold' => 0.2,
+        ]);
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'width' => 3000,
+            'height' => 3000,
+        ]);
+
+        $disk = Storage::fake('test');
+        // Cached embedding that's too large (would expand to 1024x1024, but cached is 1500x1500)
+        $disk->put("{$image->id}/400_400_1500_1500.npy", 'abc');
+
+        $this->beEditor();
+        // Request small extent that would expand to 1024x1024
+        // Cached 1500x1500 is 46% larger, exceeds 20% threshold
+        $this
+            ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+                'x' => 500,
+                'y' => 500,
+                'width' => 100,
+                'height' => 100,
+            ])
+            ->assertStatus(200)
+            ->assertJson(['url' => null]);
+
+        // Should generate new embedding instead of using cached
+        Queue::assertPushed(GenerateEmbedding::class);
+    }
+
+    public function testStoreWithExtentResolutionThresholdAccepts()
+    {
+        Queue::fake();
+        config([
+            'magic_sam.embedding_storage_disk' => 'test',
+            'magic_sam.model_input_size' => 1024,
+            'magic_sam.resolution_threshold' => 0.2,
+        ]);
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'width' => 3000,
+            'height' => 3000,
+        ]);
+
+        $disk = Storage::fake('test');
+        // Cached embedding within threshold (1100x1100 is ~7% larger than 1024x1024)
+        $disk->put("{$image->id}/400_400_1100_1100.npy", 'abc');
+
+        $this->beEditor();
+        // Request small extent that would expand to 1024x1024
+        $this
+            ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+                'x' => 500,
+                'y' => 500,
+                'width' => 100,
+                'height' => 100,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('url', fn ($url) => !is_null($url))
+            ->assertJsonPath('extent.x', 400)
+            ->assertJsonPath('extent.y', 400)
+            ->assertJsonPath('extent.width', 1100)
+            ->assertJsonPath('extent.height', 1100);
+
+        Queue::assertNothingPushed();
+    }
+
+    public function testStoreWithExtentPrefersSmallest()
+    {
+        Queue::fake();
+        config([
+            'magic_sam.embedding_storage_disk' => 'test',
+            'magic_sam.model_input_size' => 1024,
+            'magic_sam.resolution_threshold' => 0.2,
+        ]);
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'width' => 3000,
+            'height' => 3000,
+        ]);
+
+        $disk = Storage::fake('test');
+        // Multiple cached embeddings within threshold
+        $disk->put("{$image->id}/400_400_1200_1200.npy", 'abc');
+        $disk->put("{$image->id}/400_400_1100_1100.npy", 'def');
+        $disk->put("{$image->id}/400_400_1050_1050.npy", 'ghi');
+
+        $this->beEditor();
+        // Should prefer the smallest (1050x1050) for highest resolution
+        $this
+            ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+                'x' => 500,
+                'y' => 500,
+                'width' => 100,
+                'height' => 100,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('url', fn ($url) => !is_null($url))
+            ->assertJsonPath('extent.width', 1050)
+            ->assertJsonPath('extent.height', 1050);
+
+        Queue::assertNothingPushed();
+    }
 }
