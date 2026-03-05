@@ -108,7 +108,7 @@ class GenerateEmbedding
     public function getFilename(): string
     {
         if ($this->extent) {
-            return "{$imageId}/{$extent['x']}_{$extent['y']}_{$extent['width']}_{$extent['height']}.npy";
+            return "{$this->image->id}/{$this->extent['x']}_{$this->extent['y']}_{$this->extent['width']}_{$this->extent['height']}.npy";
         }
 
         return "{$this->image->id}.npy";
