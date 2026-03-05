@@ -29,13 +29,16 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         $this->postJson("/api/v1/images/{$image->id}/sam-embedding")->assertStatus(403);
 
         $this->beGuest();
+        $this->postJson("/api/v1/images/{$image->id}/sam-embedding")->assertStatus(403);
+
+        $this->beEditor();
         $this->postJson("/api/v1/images/{$image->id}/sam-embedding")
             ->assertStatus(200)
             ->assertExactJson(['url' => null]);
 
         Queue::assertPushedOn('quick', function (GenerateEmbedding $job) use ($image) {
             $this->assertEquals($image->id, $job->image->id);
-            $this->assertEquals($this->guest()->id, $job->user->id);
+            $this->assertEquals($this->editor()->id, $job->user->id);
 
             return true;
         });
@@ -50,7 +53,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         config(['magic_sam.embedding_storage_disk' => 'test']);
         $disk->put("{$image->id}.npy", 'abc');
 
-        $this->beGuest();
+        $this->beEditor();
         $this->postJson("/api/v1/images/{$image->id}/sam-embedding")
             ->assertStatus(200)
             ->assertJsonPath('url', fn ($url) => !is_null($url));
@@ -79,7 +82,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             'filename' => 'test-image-3.jpg',
         ]);
 
-        $this->beGuest();
+        $this->beEditor();
 
         $this->postJson("/api/v1/images/{$image1->id}/sam-embedding")
             ->assertStatus(200);
@@ -108,7 +111,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             'height' => 2048,
         ]);
 
-        $this->beGuest();
+        $this->beEditor();
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 100,
@@ -157,7 +160,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         $disk = Storage::fake('test');
         $disk->put("{$image->id}/100_200_1024_1024.npy", 'abc');
 
-        $this->beGuest();
+        $this->beEditor();
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 100,
@@ -193,7 +196,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         // Existing embedding at 0,0 with size 1024x1024
         $disk->put("{$image->id}/0_0_1024_1024.npy", 'abc');
 
-        $this->beGuest();
+        $this->beEditor();
         // Request smaller extent within the existing embedding
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
@@ -222,7 +225,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             'height' => 2048,
         ]);
 
-        $this->beGuest();
+        $this->beEditor();
         // Request small extent that needs to be expanded
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
@@ -262,7 +265,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             'height' => 2048,
         ]);
 
-        $this->beGuest();
+        $this->beEditor();
 
         // Missing required params when one is provided
         $this->postJson("/api/v1/images/{$image->id}/sam-embedding", [
@@ -302,7 +305,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             'height' => 1000,
         ]);
 
-        $this->beGuest();
+        $this->beEditor();
         // Request extent that extends beyond image edge
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
@@ -346,7 +349,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             'height' => 1000,
         ]);
 
-        $this->beGuest();
+        $this->beEditor();
         // Starting position is outside image bounds
         $this->postJson("/api/v1/images/{$image->id}/sam-embedding", [
             'x' => 1000,

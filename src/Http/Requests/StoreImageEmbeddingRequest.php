@@ -28,7 +28,7 @@ class StoreImageEmbeddingRequest extends FormRequest
     {
         $this->image = Image::findOrFail($this->route('id'));
 
-        return $this->user()->can('access', $this->image);
+        return $this->user()->can('add-annotation', $this->image);
     }
 
     /**
