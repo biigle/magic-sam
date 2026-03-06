@@ -89,7 +89,6 @@ class MagicSamInteraction extends PointerInteraction {
         this.detailedSamSizeTensor = null;
         this.detailedOverlayFeature = null;
         this.detailedBorderFeature = null;
-        this.lastCoordinate = null;
         this.detailedOverlayLayer = new VectorLayer({
             updateWhileAnimating: true,
             updateWhileInteracting: true,
@@ -102,6 +101,27 @@ class MagicSamInteraction extends PointerInteraction {
                 }),
             }),
         });
+
+        this.pointCoordsArray = new Float32Array(4);
+        this.pointCoordsTensor = new Tensor("float32", this.pointCoordsArray, [1, 2, 2]);
+        this.npyLoader = new npyjs();
+        this.lastMoveEvent = null;
+        this.throttledHandleMove = () => {
+            if (this.lastMoveEvent) {
+                this._handleMove(this.lastMoveEvent);
+            }
+        };
+        this.imageData = {
+            data: null,
+            width: 0,
+            height: 0,
+            bounds: {
+                minX: 0,
+                maxX: 0,
+                minY: 0,
+                maxY: 0
+            }
+        };
 
         // wasm needs to be present in the assets folder.
         this.initPromise = InferenceSession.create(options.onnxUrl, {
@@ -126,11 +146,7 @@ class MagicSamInteraction extends PointerInteraction {
             Math.round(image.width * this.imageSamScale),
         ]);
 
-        let npy = new npyjs();
-
-        // Maybe the model is not initialized at this point so we have to wait for that,
-        // too.
-        return Promise.all([npy.load(url), this.initPromise])
+        return Promise.all([this.npyLoader.load(url), this.initPromise])
             .then(([npArray, ]) => {
                 this.embedding = new Tensor("float32", npArray.data, npArray.shape);
                 this._runModelWarmup();
@@ -176,14 +192,11 @@ class MagicSamInteraction extends PointerInteraction {
             return;
         }
 
-        throttle(() => {
-            this._handleMove(e);
-        }, this.throttleInterval, 'magic-sam-move');
-
+        this.lastMoveEvent = e;
+        throttle(this.throttledHandleMove, this.throttleInterval, 'magic-sam-move');
     }
 
     _handleMove(e) {
-        this.lastCoordinate = e.coordinate;
         const detailedMode = this.isDetailedModeActive();
         let xCoord;
         let yCoord;
@@ -205,19 +218,15 @@ class MagicSamInteraction extends PointerInteraction {
             yCoord = (height - e.coordinate[1]) * this.imageSamScale;
         }
 
-        const pointCoords = new Float32Array([
-            xCoord, yCoord,
-            // Add in the extra point when only clicks and no box.
-            // The extra point is at (0, 0) with label -1.
-            0, 0,
-        ]);
+        this.pointCoordsArray[0] = xCoord;
+        this.pointCoordsArray[1] = yCoord;
+        // pointCoordsArray[2] and [3] stay at 0 (extra point for SAM)
 
-        let pointCoordsTensor = new Tensor("float32", pointCoords, [1, 2, 2]);
         const feeds = detailedMode ?
-            this._getDetailedFeeds(pointCoordsTensor) :
-            this._getFeeds(pointCoordsTensor);
+            this._getDetailedFeeds(this.pointCoordsTensor) :
+            this._getFeeds(this.pointCoordsTensor);
 
-        this.model.run(feeds).then(this._processInferenceResult.bind(this, pointCoords));
+        this.model.run(feeds).then(this._processInferenceResult.bind(this, this.pointCoordsArray));
     }
 
     /**
@@ -243,16 +252,14 @@ class MagicSamInteraction extends PointerInteraction {
             Math.round(extent.width * this.detailedSamScale),
         ]);
 
-        let npy = new npyjs();
-
-        return Promise.all([npy.load(url), this.initPromise])
+        return Promise.all([this.npyLoader.load(url), this.initPromise])
             .then(([npArray, ]) => {
                 this.detailedEmbedding = new Tensor("float32", npArray.data, npArray.shape);
                 this.createExtentOverlay(extent);
                 // Run inference again when the detailed embedding is there so the sketch
                 // is immediately updated with the more detailed version.
-                if (this.lastCoordinate) {
-                    this._handleMove({coordinate: this.lastCoordinate});
+                if (this.lastMoveEvent) {
+                    this._handleMove(this.lastMoveEvent);
                 }
             });
     }
@@ -399,22 +406,23 @@ class MagicSamInteraction extends PointerInteraction {
         }
 
         const output = results[this.model.outputNames[0]];
+        const outputData = output.data;
+        const outputLength = outputData.length;
 
-        const thresholdedOutput = output.data.map(pixel => pixel > 0 ? 1 : 0);
+        if (!this.imageData.data || this.imageData.data.length !== outputLength) {
+            this.imageData.data = new Uint8Array(outputLength);
+        }
 
-        let imageData = {
-            data: new Uint8Array(thresholdedOutput),
-            width: samWidth,
-            height: samHeight,
-            bounds: {
-                minX: 0,
-                maxX: samWidth,
-                minY: 0,
-                maxY: samHeight
-            },
-        };
+        for (let i = 0; i < outputLength; i++) {
+            this.imageData.data[i] = outputData[i] > 0 ? 1 : 0;
+        }
 
-        let contour = MagicWand.traceContours(imageData)
+        this.imageData.width = samWidth;
+        this.imageData.height = samHeight;
+        this.imageData.bounds.maxX = samWidth;
+        this.imageData.bounds.maxY = samHeight;
+
+        let contour = MagicWand.traceContours(this.imageData)
             .filter(c => !c.inner)
             .filter(c => contourContainsPoint(c, pointCoords))
             .shift();
@@ -427,11 +435,10 @@ class MagicSamInteraction extends PointerInteraction {
             contour = MagicWand.simplifyContours([contour], this.simplifyTolerant, this.simplifyCount).shift();
         }
 
-        let points = contour.points.map(point => [point.x, point.y])
-            // Scale up to original size.
-            .map(([x, y]) => [x / scale, y / scale])
-            // Offset by extent position and invert y axis for OpenLayers coordinates.
-            .map(([x, y]) => [x + offsetX, (height - y) + offsetY]);
+        const points = contour.points.map(point => [
+            point.x / scale + offsetX,
+            (height - point.y / scale) + offsetY,
+        ]);
 
         if (this.sketchFeature) {
             this.sketchFeature.getGeometry().setCoordinates([points]);
