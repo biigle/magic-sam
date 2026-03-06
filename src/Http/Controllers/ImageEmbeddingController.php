@@ -101,8 +101,28 @@ class ImageEmbeddingController extends Controller
      */
     protected function findCoveringEmbedding(Image $image, $disk, ?array $originalExtent, ?array $expandedExtent): ?array
     {
-        // Without extent the user requests the embedding for the whole image.
-        if (is_null($originalExtent)) {
+        // Use the image dimensions as fallback for the check if the full image embedding
+        // can be used for a large requested extent.
+        $expandedWidth = $expandedExtent['width'] ?? $image->width;
+        $expandedHeight = $expandedExtent['height'] ?? $image->height;
+
+        // Only cached embeddings are considered that have a width and height similar
+        // to the (expanded) requested extent, within the configured tolerance.
+        $threshold = config('magic_sam.resolution_threshold');
+        $minWidth = $expandedWidth * (1 - $threshold);
+        $maxWidth = $expandedWidth * (1 + $threshold);
+        $minHeight = $expandedHeight * (1 - $threshold);
+        $maxHeight = $expandedHeight * (1 + $threshold);
+
+        // Take the full image embedding uf no extent was requested or the requested
+        // extent almost matches the full image dimensions.
+        if (
+            !$originalExtent  ||
+            ($image->width >= $minWidth &&
+            $image->width <= $maxWidth &&
+            $image->height >= $minHeight &&
+            $image->height <= $maxHeight)
+        ) {
             $filename = "{$image->id}.npy";
 
             if ($disk->exists($filename)) {
@@ -119,14 +139,6 @@ class ImageEmbeddingController extends Controller
         if (!$disk->exists($directory)) {
             return null;
         }
-
-        // Only cached embeddings are considered that have a width and height similar
-        // to the (expanded) requested extent, within the configured tolerance.
-        $threshold = config('magic_sam.resolution_threshold');
-        $minWidth = $expandedExtent['width'] * (1 - $threshold);
-        $maxWidth = $expandedExtent['width'] * (1 + $threshold);
-        $minHeight = $expandedExtent['height'] * (1 - $threshold);
-        $maxHeight = $expandedExtent['height'] * (1 + $threshold);
 
         $bestMatch = null;
         $smallestArea = PHP_INT_MAX;
