@@ -22,6 +22,11 @@ let detailedOverlayLayer;
 let detailedOverlayFeature;
 let detailedBorderFeature;
 
+const OVERLAY_Z_INDEX = 199;
+const OVERLAY_OPACITY = 0.75;
+const OVERLAY_BORDER_COLOR = 'yellow';
+const OVERLAY_BORDER_WIDTH = 3;
+
 /**
  * Mixin for the annotationCanvas component that contains logic for the Magic Sam interaction.
  *
@@ -195,14 +200,19 @@ export default {
             magicSamInteraction.setActive(false);
             this.map.addInteraction(magicSamInteraction);
         },
+        clampExtentToImage(extent) {
+            return [
+                Math.round(Math.max(0, extent[0])),
+                Math.round(Math.max(0, extent[1])),
+                Math.round(Math.min(this.image.width, extent[2])),
+                Math.round(Math.min(this.image.height, extent[3])),
+            ];
+        },
         requestDetailedEmbedding() {
-            const viewportExtent = this.map.getView().calculateExtent(this.map.getSize());
+            const viewportExtent = this.clampExtentToImage(
+                this.map.getView().calculateExtent(this.map.getSize())
+            );
 
-            // Clamp viewport to image bounds
-            viewportExtent[0] = Math.round(Math.max(0, viewportExtent[0]));
-            viewportExtent[1] = Math.round(Math.max(0, viewportExtent[1]));
-            viewportExtent[2] = Math.round(Math.min(this.image.width, viewportExtent[2]));
-            viewportExtent[3] = Math.round(Math.min(this.image.height, viewportExtent[3]));
             // By default, use the viewport extent to request the embedding.
             const bbox = {
                 x: viewportExtent[0],
@@ -211,27 +221,29 @@ export default {
                 height: viewportExtent[3] - viewportExtent[1],
             };
 
-            const sketchExtent = magicSamInteraction.getSketchBoundingExtent()?.slice();
+            const sketchExtent = magicSamInteraction.getSketchBoundingExtent();
             if (sketchExtent) {
                 // Add padding and clamp to image bounds.
                 const padding = this.detailedModeExtentPadding;
-                sketchExtent[0] = Math.round(Math.max(0, sketchExtent[0] - padding));
-                sketchExtent[1] = Math.round(Math.max(0, sketchExtent[1] - padding));
-                sketchExtent[2] = Math.round(Math.min(this.image.width, sketchExtent[2] + padding));
-                sketchExtent[3] = Math.round(Math.min(this.image.height, sketchExtent[3] + padding));
+                const paddedExtent = this.clampExtentToImage([
+                    sketchExtent[0] - padding,
+                    sketchExtent[1] - padding,
+                    sketchExtent[2] + padding,
+                    sketchExtent[3] + padding,
+                ]);
 
                 // If the sketch feature is contained by the viewport extent, take its
                 // extent for the embedding, instead.
                 if (
-                    sketchExtent[0] >= viewportExtent[0] &&
-                    sketchExtent[1] >= viewportExtent[1] &&
-                    sketchExtent[2] <= viewportExtent[2] &&
-                    sketchExtent[3] <= viewportExtent[3]
+                    paddedExtent[0] >= viewportExtent[0] &&
+                    paddedExtent[1] >= viewportExtent[1] &&
+                    paddedExtent[2] <= viewportExtent[2] &&
+                    paddedExtent[3] <= viewportExtent[3]
                 ) {
-                    bbox.x = sketchExtent[0];
-                    bbox.y = sketchExtent[1];
-                    bbox.width = sketchExtent[2] - sketchExtent[0];
-                    bbox.height = sketchExtent[3] - sketchExtent[1];
+                    bbox.x = paddedExtent[0];
+                    bbox.y = paddedExtent[1];
+                    bbox.width = paddedExtent[2] - paddedExtent[0];
+                    bbox.height = paddedExtent[3] - paddedExtent[1];
                 }
             }
 
@@ -264,10 +276,10 @@ export default {
                     updateWhileInteracting: true,
                     source: new VectorSource(),
                     map: this.map,
-                    zIndex: 199,
+                    zIndex: OVERLAY_Z_INDEX,
                     style: new Style({
                         fill: new Fill({
-                            color: 'rgba(0, 0, 0, 0.75)',
+                            color: `rgba(0, 0, 0, ${OVERLAY_OPACITY})`,
                         }),
                     }),
                 });
@@ -301,11 +313,14 @@ export default {
             // Create separate border feature for the hole
             detailedBorderFeature = new Feature(new Polygon([extentHole]));
             detailedBorderFeature.setStyle(new Style({
-                stroke: new Stroke({color: 'yellow', width: 3}),
+                stroke: new Stroke({color: OVERLAY_BORDER_COLOR, width: OVERLAY_BORDER_WIDTH}),
             }));
             detailedOverlayLayer.getSource().addFeature(detailedBorderFeature);
         },
         removeDetailedOverlay() {
+            if (!detailedOverlayLayer) {
+                return;
+            }
             if (detailedOverlayFeature) {
                 detailedOverlayLayer.getSource().removeFeature(detailedOverlayFeature);
                 detailedOverlayFeature = null;
