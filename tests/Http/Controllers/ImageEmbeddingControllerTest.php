@@ -259,6 +259,52 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         });
     }
 
+    public function testStoreWithBboxExpandedToSquare()
+    {
+        config([
+            'magic_sam.embedding_storage_disk' => 'test',
+            'magic_sam.model_input_size' => 1024,
+        ]);
+        Queue::fake();
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'width' => 3000,
+            'height' => 3000,
+        ]);
+
+        $this->beEditor();
+        // Request non-square bbox larger than minSize. Should be expanded to square.
+        // Input: 1500x1200 at (500, 600)
+        // Target size: max(1024, 1500, 1200) = 1500
+        // New x: 500 (width already at target)
+        // New y: 600 - (1500 - 1200) / 2 = 600 - 150 = 450
+        $this
+            ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+                'x' => 500,
+                'y' => 600,
+                'width' => 1500,
+                'height' => 1200,
+            ])
+            ->assertStatus(200)
+            ->assertJson([
+                'url' => null,
+                'bbox' => [
+                    'x' => 500,
+                    'y' => 450,
+                    'width' => 1500,
+                    'height' => 1500,
+                ],
+            ]);
+
+        Queue::assertPushed(function (GenerateEmbedding $job) {
+            $this->assertEquals(1500, $job->bbox['width']);
+            $this->assertEquals(1500, $job->bbox['height']);
+
+            return true;
+        });
+    }
+
     public function testStoreWithBboxValidation()
     {
         config(['magic_sam.embedding_storage_disk' => 'test']);

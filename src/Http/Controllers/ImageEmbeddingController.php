@@ -189,24 +189,27 @@ class ImageEmbeddingController extends Controller
     }
 
     /**
-     * Expand bbox to minimum model input size if needed.
+     * Expand bbox to a square with at least the minimum model input size.
      */
     protected function expandBbox(Image $image, array $bbox): array
     {
         $minSize = config('magic_sam.model_input_size');
 
-        // Expand width if needed (centered).
-        if ($bbox['width'] < $minSize) {
-            $expand = $minSize - $bbox['width'];
+        // Determine target size: at least minSize, and square (use largest dimension).
+        $targetSize = max($minSize, $bbox['width'], $bbox['height']);
+
+        // Expand width (centered).
+        if ($bbox['width'] < $targetSize) {
+            $expand = $targetSize - $bbox['width'];
             $bbox['x'] = max(0, $bbox['x'] - intval($expand / 2));
-            $bbox['width'] = min($minSize, $image->width);
+            $bbox['width'] = min($targetSize, $image->width);
         }
 
-        // Expand height if needed (centered).
-        if ($bbox['height'] < $minSize) {
-            $expand = $minSize - $bbox['height'];
+        // Expand height (centered).
+        if ($bbox['height'] < $targetSize) {
+            $expand = $targetSize - $bbox['height'];
             $bbox['y'] = max(0, $bbox['y'] - intval($expand / 2));
-            $bbox['height'] = min($minSize, $image->height);
+            $bbox['height'] = min($targetSize, $image->height);
         }
 
         // Clamp to image bounds.
