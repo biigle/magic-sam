@@ -11,6 +11,8 @@
     :active="isMagicSamming"
     :loading="loadingMagicSam"
     :class="magicSamButtonClass"
+    tooltip="Press 𝗭 to toggle detailed mode"
+    tooltip-closable="magic-sam-detailed-mode"
     v-on:click="toggleMagicSam"
     v-on:active="onActive"
     ></control-button>
@@ -19,6 +21,7 @@
     {{vite_hot(base_path('vendor/biigle/magic-sam/hot'), ['src/resources/assets/js/main.js'], 'vendor/magic-sam')}}
 <script type="module">
     biigle.$declare('magic-sam.onnx-url', '{{cachebust_asset('vendor/magic-sam/assets/'.config('magic_sam.onnx_file'))}}');
+    biigle.$declare('magic-sam.model-input-size', {{config('magic_sam.model_input_size')}});
 </script>
 @endpush
 

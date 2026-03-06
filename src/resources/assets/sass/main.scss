@@ -2,6 +2,7 @@
     position: relative;
 
     &:before, &:after {
+        z-index: 1000;
         font-family: "Font Awesome 5 Free";
         font-weight: 400;
         font-size: 80%;
