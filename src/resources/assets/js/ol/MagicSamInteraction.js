@@ -1,11 +1,8 @@
 import Feature from '@biigle/ol/Feature';
-import Fill from '@biigle/ol/style/Fill';
-import Stroke from '@biigle/ol/style/Stroke';
 import MagicWand from 'magic-wand-tool';
 import npyjs from "npyjs";
 import PointerInteraction from '@biigle/ol/interaction/Pointer';
 import Polygon from '@biigle/ol/geom/Polygon';
-import Style from '@biigle/ol/style/Style';
 import VectorLayer from '@biigle/ol/layer/Vector';
 import VectorSource from '@biigle/ol/source/Vector';
 import {InferenceSession, Tensor} from "onnxruntime-web";
@@ -81,26 +78,14 @@ class MagicSamInteraction extends PointerInteraction {
         this.imageSamScale = null;
         this.isDragging = false;
 
+        this.isFrozen = false;
+
         this.modelInputSize = options.modelInputSize || DEFAULT_MODEL_INPUT_SIZE;
 
         this.detailedEmbedding = null;
         this.detailedExtent = null;
         this.detailedSamScale = null;
         this.detailedSamSizeTensor = null;
-        this.detailedOverlayFeature = null;
-        this.detailedBorderFeature = null;
-        this.detailedOverlayLayer = new VectorLayer({
-            updateWhileAnimating: true,
-            updateWhileInteracting: true,
-            source: new VectorSource(),
-            map: this.map,
-            zIndex: 199,
-            style: new Style({
-                fill: new Fill({
-                    color: 'rgba(0, 0, 0, 0.75)',
-                }),
-            }),
-        });
 
         this.pointCoordsArray = new Float32Array(4);
         this.pointCoordsTensor = new Tensor("float32", this.pointCoordsArray, [1, 2, 2]);
@@ -188,7 +173,7 @@ class MagicSamInteraction extends PointerInteraction {
      * Update the target point.
      */
     handleMoveEvent(e) {
-        if (!this.model) {
+        if (this.isFrozen || !this.model) {
             return;
         }
 
@@ -241,6 +226,14 @@ class MagicSamInteraction extends PointerInteraction {
         }
     }
 
+    freeze() {
+        this.isFrozen = true;
+    }
+
+    unfreeze() {
+        this.isFrozen = false;
+    }
+
     /**
      * Set a detailed embedding for a specific extent (detailed mode).
      */
@@ -255,7 +248,6 @@ class MagicSamInteraction extends PointerInteraction {
         return Promise.all([this.npyLoader.load(url), this.initPromise])
             .then(([npArray, ]) => {
                 this.detailedEmbedding = new Tensor("float32", npArray.data, npArray.shape);
-                this.createExtentOverlay(extent);
                 // Run inference again when the detailed embedding is there so the sketch
                 // is immediately updated with the more detailed version.
                 if (this.lastMoveEvent) {
@@ -271,7 +263,6 @@ class MagicSamInteraction extends PointerInteraction {
         this.detailedEmbedding = null;
         this.detailedExtent = null;
         this.detailedSamScale = null;
-        this.removeDetailedOverlay();
     }
 
     getSketchBoundingExtent() {
@@ -294,54 +285,6 @@ class MagicSamInteraction extends PointerInteraction {
 
         return x >= ext.x && x <= (ext.x + ext.width) &&
                y >= ext.y && y <= (ext.y + ext.height);
-    }
-
-    /**
-     * Create the dimmed overlay polygon with a hole for the detailed area.
-     */
-    createExtentOverlay(extent) {
-        this.removeDetailedOverlay();
-
-        const [imageHeight, imageWidth] = this.imageSizeTensor.data;
-
-        // Full image polygon (outer ring) - counterclockwise for OpenLayers
-        const fullImage = [
-            [0, 0],
-            [imageWidth, 0],
-            [imageWidth, imageHeight],
-            [0, imageHeight],
-            [0, 0],
-        ];
-
-        // Extent hole (inner ring) - clockwise for OpenLayers to create a hole
-        const extentHole = [
-            [extent.x, extent.y],
-            [extent.x, extent.y + extent.height],
-            [extent.x + extent.width, extent.y + extent.height],
-            [extent.x + extent.width, extent.y],
-            [extent.x, extent.y],
-        ];
-
-        this.detailedOverlayFeature = new Feature(new Polygon([fullImage, extentHole]));
-        this.detailedOverlayLayer.getSource().addFeature(this.detailedOverlayFeature);
-
-        // Create separate border feature for the hole
-        this.detailedBorderFeature = new Feature(new Polygon([extentHole]));
-        this.detailedBorderFeature.setStyle(new Style({
-            stroke: new Stroke({color: 'yellow', width: 3}),
-        }));
-        this.detailedOverlayLayer.getSource().addFeature(this.detailedBorderFeature);
-    }
-
-    removeDetailedOverlay() {
-        if (this.detailedOverlayFeature) {
-            this.detailedOverlayLayer.getSource().removeFeature(this.detailedOverlayFeature);
-            this.detailedOverlayFeature = null;
-        }
-        if (this.detailedBorderFeature) {
-            this.detailedOverlayLayer.getSource().removeFeature(this.detailedBorderFeature);
-            this.detailedBorderFeature = null;
-        }
     }
 
     isDetailedModeActive() {

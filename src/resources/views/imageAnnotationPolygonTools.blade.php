@@ -11,7 +11,7 @@
     :active="isMagicSamming"
     :loading="loadingMagicSam"
     :class="magicSamButtonClass"
-    tooltip="Press 𝗭 to toggle detailed mode"
+    :tooltip="magicSamTooltipText"
     tooltip-closable="magic-sam-detailed-mode"
     v-on:click="toggleMagicSam"
     v-on:active="onActive"

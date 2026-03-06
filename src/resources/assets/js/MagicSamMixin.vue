@@ -1,6 +1,13 @@
 <script>
+import Feature from '@biigle/ol/Feature';
+import Fill from '@biigle/ol/style/Fill';
 import ImageEmbeddingApi from './api/image.js';
 import MagicSamInteraction from './ol/MagicSamInteraction.js';
+import Polygon from '@biigle/ol/geom/Polygon';
+import Stroke from '@biigle/ol/style/Stroke';
+import Style from '@biigle/ol/style/Style';
+import VectorLayer from '@biigle/ol/layer/Vector';
+import VectorSource from '@biigle/ol/source/Vector';
 import {Echo} from './import.js';
 import {handleErrorResponse} from './import.js';
 import {Keyboard} from './import.js';
@@ -11,6 +18,9 @@ import {Events} from './import.js';
 let magicSamInteraction;
 let loadedImageId;
 let loadingImageId;
+let detailedOverlayLayer;
+let detailedOverlayFeature;
+let detailedBorderFeature;
 
 /**
  * Mixin for the annotationCanvas component that contains logic for the Magic Sam interaction.
@@ -53,6 +63,13 @@ export default {
 
             return 'Draw a polygon using the magic SAM tool 𝗭';
         },
+        magicSamTooltipText() {
+            if (!this.detailedModeActive && !this.loadingDetailedMode) {
+                return 'Press 𝗭 to toggle detailed mode';
+            }
+
+            return '';
+        }
     },
     methods: {
         setThrottleInterval(interval) {
@@ -88,11 +105,20 @@ export default {
                 return;
             }
 
+            // Convert y axis back to Openlayers coordinates.
+            if (this.loadingDetailedMode && response.body.extent) {
+                const extent = Object.assign({}, response.body.extent);
+                extent.y = this.image.height - extent.y - extent.height;
+                this.createExtentOverlay(extent);
+            }
+
             if (response.body.url !== null) {
                 this.handleSamEmbeddingAvailable(response.body);
             } else {
                 // Wait for the Websockets event.
                 this.loadingMagicSamTakesLong = true;
+                // Freeze interaction while loading long.
+                magicSamInteraction.freeze();
             }
         },
         handleSamEmbeddingRequestFailure(response) {
@@ -106,7 +132,10 @@ export default {
                 return;
             }
 
-            if (this.loadingDetailedMode) {
+            magicSamInteraction.unfreeze();
+
+            // Discard detailed embedding if Magic SAM was disabled in the meantime.
+            if (this.loadingDetailedMode && this.isMagicSamming) {
                 if (event.extent) {
                     // Convert y axis back to Openlayers coordinates.
                     event.extent.y = this.image.height - event.extent.y - event.extent.height;
@@ -136,6 +165,7 @@ export default {
             magicSamInteraction.updateEmbedding(this.image, event.url)
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
+                    magicSamInteraction.unfreeze();
                     // The user could have disabled the interaction while loading.
                     if (this.isMagicSamming) {
                         magicSamInteraction.setActive(true);
@@ -220,11 +250,70 @@ export default {
                 );
         },
         exitDetailedMode() {
+            this.removeDetailedOverlay();
             if (magicSamInteraction) {
                 magicSamInteraction.clearDetailedEmbedding();
             }
             this.finishLoadingMagicSam();
             this.detailedModeActive = false;
+        },
+        initDetailedOverlayLayer() {
+            if (!detailedOverlayLayer) {
+                detailedOverlayLayer = new VectorLayer({
+                    updateWhileAnimating: true,
+                    updateWhileInteracting: true,
+                    source: new VectorSource(),
+                    map: this.map,
+                    zIndex: 199,
+                    style: new Style({
+                        fill: new Fill({
+                            color: 'rgba(0, 0, 0, 0.75)',
+                        }),
+                    }),
+                });
+            }
+        },
+        createExtentOverlay(extent) {
+            this.initDetailedOverlayLayer();
+            this.removeDetailedOverlay();
+
+            // Full image polygon (outer ring) - counterclockwise for OpenLayers
+            const fullImage = [
+                [0, 0],
+                [this.image.width, 0],
+                [this.image.width, this.image.height],
+                [0, this.image.height],
+                [0, 0],
+            ];
+
+            // Extent hole (inner ring) - clockwise for OpenLayers to create a hole
+            const extentHole = [
+                [extent.x, extent.y],
+                [extent.x, extent.y + extent.height],
+                [extent.x + extent.width, extent.y + extent.height],
+                [extent.x + extent.width, extent.y],
+                [extent.x, extent.y],
+            ];
+
+            detailedOverlayFeature = new Feature(new Polygon([fullImage, extentHole]));
+            detailedOverlayLayer.getSource().addFeature(detailedOverlayFeature);
+
+            // Create separate border feature for the hole
+            detailedBorderFeature = new Feature(new Polygon([extentHole]));
+            detailedBorderFeature.setStyle(new Style({
+                stroke: new Stroke({color: 'yellow', width: 3}),
+            }));
+            detailedOverlayLayer.getSource().addFeature(detailedBorderFeature);
+        },
+        removeDetailedOverlay() {
+            if (detailedOverlayFeature) {
+                detailedOverlayLayer.getSource().removeFeature(detailedOverlayFeature);
+                detailedOverlayFeature = null;
+            }
+            if (detailedBorderFeature) {
+                detailedOverlayLayer.getSource().removeFeature(detailedBorderFeature);
+                detailedBorderFeature = null;
+            }
         },
     },
     watch: {
