@@ -22,24 +22,24 @@ class EmbeddingAvailableTest extends TestCase
 
         $this->assertArrayHasKey('url', $data);
         $this->assertNotNull($data['url']);
-        $this->assertArrayNotHasKey('extent', $data);
+        $this->assertArrayNotHasKey('bbox', $data);
     }
 
-    public function testBroadcastWithExtent()
+    public function testBroadcastWithBbox()
     {
         $disk = Storage::fake('test');
         config(['magic_sam.embedding_storage_disk' => 'test']);
         $disk->put('1/100_200_1024_1024.npy', 'abc');
 
         $user = User::factory()->create();
-        $extent = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
-        $event = new EmbeddingAvailable('1/100_200_1024_1024.npy', $user, $extent);
+        $bbox = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
+        $event = new EmbeddingAvailable('1/100_200_1024_1024.npy', $user, $bbox);
 
         $data = $event->broadcastWith();
 
         $this->assertArrayHasKey('url', $data);
         $this->assertNotNull($data['url']);
-        $this->assertArrayHasKey('extent', $data);
-        $this->assertEquals($extent, $data['extent']);
+        $this->assertArrayHasKey('bbox', $data);
+        $this->assertEquals($bbox, $data['bbox']);
     }
 }

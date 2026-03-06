@@ -5,6 +5,7 @@ import PointerInteraction from '@biigle/ol/interaction/Pointer';
 import Polygon from '@biigle/ol/geom/Polygon';
 import VectorLayer from '@biigle/ol/layer/Vector';
 import VectorSource from '@biigle/ol/source/Vector';
+import {containsCoordinate, getWidth, getHeight} from '@biigle/ol/extent';
 import {InferenceSession, Tensor} from "onnxruntime-web";
 import {linearRingContainsXY} from '@biigle/ol/geom/flat/contains';
 import {throttle} from '../import.js';
@@ -195,8 +196,10 @@ class MagicSamInteraction extends PointerInteraction {
             }
 
             // Transform coordinates relative to the detailed extent.
-            xCoord = (e.coordinate[0] - this.detailedExtent.x) * this.detailedSamScale;
-            yCoord = (this.detailedExtent.height + this.detailedExtent.y - e.coordinate[1]) * this.detailedSamScale;
+            // Extent is [minX, minY, maxX, maxY].
+            const ext = this.detailedExtent;
+            xCoord = (e.coordinate[0] - ext[0]) * this.detailedSamScale;
+            yCoord = (ext[3] - e.coordinate[1]) * this.detailedSamScale;
         } else {
             const [height, ] = this.imageSizeTensor.data;
             xCoord = e.coordinate[0] * this.imageSamScale;
@@ -236,13 +239,17 @@ class MagicSamInteraction extends PointerInteraction {
 
     /**
      * Set a detailed embedding for a specific extent (detailed mode).
+     * @param {Array} extent OL extent [minX, minY, maxX, maxY]
+     * @param {string} url URL to load the embedding from
      */
     setDetailedEmbedding(extent, url) {
         this.detailedExtent = extent;
-        this.detailedSamScale = this.modelInputSize / Math.max(extent.width, extent.height);
+        const width = getWidth(extent);
+        const height = getHeight(extent);
+        this.detailedSamScale = this.modelInputSize / Math.max(width, height);
         this.detailedSamSizeTensor = new Tensor("float32", [
-            Math.round(extent.height * this.detailedSamScale),
-            Math.round(extent.width * this.detailedSamScale),
+            Math.round(height * this.detailedSamScale),
+            Math.round(width * this.detailedSamScale),
         ]);
 
         return Promise.all([this.npyLoader.load(url), this.initPromise])
@@ -280,11 +287,7 @@ class MagicSamInteraction extends PointerInteraction {
             return false;
         }
 
-        const [x, y] = coord;
-        const ext = this.detailedExtent;
-
-        return x >= ext.x && x <= (ext.x + ext.width) &&
-               y >= ext.y && y <= (ext.y + ext.height);
+        return containsCoordinate(this.detailedExtent, coord);
     }
 
     isDetailedModeActive() {
@@ -335,11 +338,13 @@ class MagicSamInteraction extends PointerInteraction {
         if (this.isDetailedModeActive()) {
             const ext = this.detailedExtent;
             scale = this.detailedSamScale;
-            height = ext.height;
-            offsetX = ext.x;
-            offsetY = ext.y;
-            samHeight = Math.round(ext.height * scale);
-            samWidth = Math.round(ext.width * scale);
+            const extWidth = getWidth(ext);
+            const extHeight = getHeight(ext);
+            height = extHeight;
+            offsetX = ext[0];
+            offsetY = ext[1];
+            samHeight = Math.round(extHeight * scale);
+            samWidth = Math.round(extWidth * scale);
         } else {
             [height, ] = this.imageSizeTensor.data;
             scale = this.imageSamScale;

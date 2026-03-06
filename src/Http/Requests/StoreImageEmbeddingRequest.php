@@ -15,11 +15,11 @@ class StoreImageEmbeddingRequest extends FormRequest
     protected $image;
 
     /**
-     * The validated and expanded extent.
+     * The validated bbox.
      *
      * @var array|null
      */
-    protected $extent;
+    protected $bbox;
 
     /**
      * Determine if the user is authorized to make this request.
@@ -36,7 +36,7 @@ class StoreImageEmbeddingRequest extends FormRequest
      */
     public function rules(): array
     {
-        if ($this->hasExtent()) {
+        if ($this->hasBbox()) {
             return [
                 'x' => 'required|integer|min:0',
                 'y' => 'required|integer|min:0',
@@ -58,27 +58,27 @@ class StoreImageEmbeddingRequest extends FormRequest
                 return;
             }
 
-            if (!$this->hasExtent()) {
+            if (!$this->hasBbox()) {
                 return;
             }
 
-            $extent = [
+            $bbox = [
                 'x' => (int) $this->input('x'),
                 'y' => (int) $this->input('y'),
                 'width' => (int) $this->input('width'),
                 'height' => (int) $this->input('height'),
             ];
 
-            // Validate extent is fully within image bounds
+            // Validate bbox is fully within image bounds.
             if (
-                $extent['x'] >= $this->image->width ||
-                $extent['y'] >= $this->image->height ||
-                $extent['x'] + $extent['width'] > $this->image->width ||
-                $extent['y'] + $extent['height'] > $this->image->height
+                $bbox['x'] >= $this->image->width ||
+                $bbox['y'] >= $this->image->height ||
+                $bbox['x'] + $bbox['width'] > $this->image->width ||
+                $bbox['y'] + $bbox['height'] > $this->image->height
             ) {
-                $validator->errors()->add('extent', 'Extent is outside image bounds.');
+                $validator->errors()->add('bbox', 'Bbox is outside image bounds.');
             } else {
-                $this->extent = $extent;
+                $this->bbox = $bbox;
             }
         });
     }
@@ -92,19 +92,19 @@ class StoreImageEmbeddingRequest extends FormRequest
     }
 
     /**
-     * Get the validated and expanded extent.
+     * Get the validated bbox.
      */
-    public function getExtent(): ?array
+    public function getBbox(): ?array
     {
-        return $this->extent;
+        return $this->bbox;
     }
 
     /**
-     * Determine wether the request includes an extent.
+     * Determine wether the request includes a bbox.
      *
      * @return boolean
      */
-    public function hasExtent(): bool
+    public function hasBbox(): bool
     {
         return $this->has('x') || $this->has('y') || $this->has('width') || $this->has('height');
     }

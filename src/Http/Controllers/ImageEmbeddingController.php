@@ -20,18 +20,18 @@ class ImageEmbeddingController extends Controller
      * @apiGroup Images
      * @apiName StoreSamEmbedding
      * @apiPermission projectMember
-     * @apiDescription This will generate a SAM embedding for the image and propagate the download URL to the user's Websockets channel. If an embedding already exists, it returns the download URL directly. Optionally accepts extent parameters (x, y, width, height) for partial image embeddings.
+     * @apiDescription This will generate a SAM embedding for the image and propagate the download URL to the user's Websockets channel. If an embedding already exists, it returns the download URL directly. Optionally accepts bbox parameters (x, y, width, height) for partial image embeddings.
      *
      * @apiParam {Number} id The image ID.
-     * @apiParam {Number} [x] Extent x coordinate (pixels).
-     * @apiParam {Number} [y] Extent y coordinate (pixels).
-     * @apiParam {Number} [width] Extent width (pixels).
-     * @apiParam {Number} [height] Extent height (pixels).
+     * @apiParam {Number} [x] Bbox x coordinate (pixels).
+     * @apiParam {Number} [y] Bbox y coordinate (pixels).
+     * @apiParam {Number} [width] Bbox width (pixels).
+     * @apiParam {Number} [height] Bbox height (pixels).
      *
      * @apiSuccessExample {json} Success response:
      * {
      *    "url": "https://example.com/storage/1.npy",
-     *    "extent": {"x": 100, "y": 200, "width": 1024, "height": 1024}
+     *    "bbox": {"x": 100, "y": 200, "width": 1024, "height": 1024}
      * }
      *
      * @param StoreImageEmbeddingRequest $request
@@ -40,14 +40,14 @@ class ImageEmbeddingController extends Controller
     public function store(StoreImageEmbeddingRequest $request)
     {
         $image = $request->getImage();
-        $originalExtent = $request->getExtent();
+        $originalBbox = $request->getBbox();
         $disk = Storage::disk(config('magic_sam.embedding_storage_disk'));
 
-        // Expand extent to determine target resolution
-        $expandedExtent = $originalExtent ? $this->expandExtent($image, $originalExtent) : null;
+        // Expand bbox to determine target resolution.
+        $expandedBbox = $originalBbox ? $this->expandBbox($image, $originalBbox) : null;
 
         // Check if a matching embedding already exists.
-        $result = $this->findCoveringEmbedding($image, $disk, $originalExtent, $expandedExtent);
+        $result = $this->findCoveringEmbedding($image, $disk, $originalBbox, $expandedBbox);
         if ($result) {
             if ($disk->providesTemporaryUrls()) {
                 $url = $disk->temporaryUrl($result['filename'], now()->addHour());
@@ -56,8 +56,8 @@ class ImageEmbeddingController extends Controller
             }
 
             $response = ['url' => $url];
-            if ($result['extent']) {
-                $response['extent'] = $result['extent'];
+            if ($result['bbox']) {
+                $response['bbox'] = $result['bbox'];
             }
 
             return $response;
@@ -78,46 +78,46 @@ class ImageEmbeddingController extends Controller
         Queue::connection(config('magic_sam.request_connection'))
             ->pushOn(
                 config('magic_sam.request_queue'),
-                new GenerateEmbedding($image, $user, $expandedExtent)
+                new GenerateEmbedding($image, $user, $expandedBbox)
             );
 
         $response = ['url' => null];
-        if ($expandedExtent) {
-            $response['extent'] = $expandedExtent;
+        if ($expandedBbox) {
+            $response['bbox'] = $expandedBbox;
         }
 
         return $response;
     }
 
     /**
-     * Find an existing extent-based embedding that covers the requested extent
-     * with resolution similar to the target expanded extent.
+     * Find an existing embedding that covers the requested bbox
+     * with resolution similar to the target expanded bbox.
      *
      * @param Image $image
      * @param $disk Storage disk
-     * @param array|null $originalExtent The original requested extent
-     * @param array|null $expandedExtent The expanded extent (target resolution)
-     * @return array|null ['filename' => string, 'extent' => array|null]
+     * @param array|null $originalBbox The original requested bbox
+     * @param array|null $expandedBbox The expanded bbox (target resolution)
+     * @return array|null ['filename' => string, 'bbox' => array|null]
      */
-    protected function findCoveringEmbedding(Image $image, $disk, ?array $originalExtent, ?array $expandedExtent): ?array
+    protected function findCoveringEmbedding(Image $image, $disk, ?array $originalBbox, ?array $expandedBbox): ?array
     {
         // Use the image dimensions as fallback for the check if the full image embedding
-        // can be used for a large requested extent.
-        $expandedWidth = $expandedExtent['width'] ?? $image->width;
-        $expandedHeight = $expandedExtent['height'] ?? $image->height;
+        // can be used for a large requested bbox.
+        $expandedWidth = $expandedBbox['width'] ?? $image->width;
+        $expandedHeight = $expandedBbox['height'] ?? $image->height;
 
         // Only cached embeddings are considered that have a width and height similar
-        // to the (expanded) requested extent, within the configured tolerance.
+        // to the (expanded) requested bbox, within the configured tolerance.
         $threshold = config('magic_sam.resolution_threshold');
         $minWidth = $expandedWidth * (1 - $threshold);
         $maxWidth = $expandedWidth * (1 + $threshold);
         $minHeight = $expandedHeight * (1 - $threshold);
         $maxHeight = $expandedHeight * (1 + $threshold);
 
-        // Take the full image embedding uf no extent was requested or the requested
-        // extent almost matches the full image dimensions.
+        // Take the full image embedding if no bbox was requested or the requested
+        // bbox almost matches the full image dimensions.
         if (
-            !$originalExtent  ||
+            !$originalBbox  ||
             ($image->width >= $minWidth &&
             $image->width <= $maxWidth &&
             $image->height >= $minHeight &&
@@ -126,14 +126,14 @@ class ImageEmbeddingController extends Controller
             $filename = "{$image->id}.npy";
 
             if ($disk->exists($filename)) {
-                return ['filename' => $filename, 'extent' => null];
+                return ['filename' => $filename, 'bbox' => null];
             }
 
             return null;
         }
 
 
-        // Otherwise we look for an embedding matching the extent.
+        // Otherwise we look for an embedding matching the bbox.
         $directory = (string) $image->id;
 
         if (!$disk->exists($directory)) {
@@ -157,12 +157,12 @@ class ImageEmbeddingController extends Controller
                 'height' => (int) $parts[3],
             ];
 
-            // Ignore if cached extent does not cover requested extent.
+            // Ignore if cached bbox does not cover requested bbox.
             if (
-                $cached['x'] > $originalExtent['x'] ||
-                $cached['y'] > $originalExtent['y'] ||
-                $cached['x'] + $cached['width'] < $originalExtent['x'] + $originalExtent['width'] ||
-                $cached['y'] + $cached['height'] < $originalExtent['y'] + $originalExtent['height']
+                $cached['x'] > $originalBbox['x'] ||
+                $cached['y'] > $originalBbox['y'] ||
+                $cached['x'] + $cached['width'] < $originalBbox['x'] + $originalBbox['width'] ||
+                $cached['y'] + $cached['height'] < $originalBbox['y'] + $originalBbox['height']
             ) {
                 continue;
             }
@@ -181,7 +181,7 @@ class ImageEmbeddingController extends Controller
             $area = $cached['width'] * $cached['height'];
             if ($area < $smallestArea) {
                 $smallestArea = $area;
-                $bestMatch = ['filename' => $file, 'extent' => $cached];
+                $bestMatch = ['filename' => $file, 'bbox' => $cached];
             }
         }
 
@@ -189,34 +189,34 @@ class ImageEmbeddingController extends Controller
     }
 
     /**
-     * Expand extent to minimum model input size if needed.
+     * Expand bbox to minimum model input size if needed.
      */
-    protected function expandExtent(Image $image, array $extent): array
+    protected function expandBbox(Image $image, array $bbox): array
     {
         $minSize = config('magic_sam.model_input_size');
 
-        // Expand width if needed (centered)
-        if ($extent['width'] < $minSize) {
-            $expand = $minSize - $extent['width'];
-            $extent['x'] = max(0, $extent['x'] - intval($expand / 2));
-            $extent['width'] = min($minSize, $image->width);
+        // Expand width if needed (centered).
+        if ($bbox['width'] < $minSize) {
+            $expand = $minSize - $bbox['width'];
+            $bbox['x'] = max(0, $bbox['x'] - intval($expand / 2));
+            $bbox['width'] = min($minSize, $image->width);
         }
 
-        // Expand height if needed (centered)
-        if ($extent['height'] < $minSize) {
-            $expand = $minSize - $extent['height'];
-            $extent['y'] = max(0, $extent['y'] - intval($expand / 2));
-            $extent['height'] = min($minSize, $image->height);
+        // Expand height if needed (centered).
+        if ($bbox['height'] < $minSize) {
+            $expand = $minSize - $bbox['height'];
+            $bbox['y'] = max(0, $bbox['y'] - intval($expand / 2));
+            $bbox['height'] = min($minSize, $image->height);
         }
 
-        // Clamp to image bounds
-        if ($extent['x'] + $extent['width'] > $image->width) {
-            $extent['x'] = max(0, $image->width - $extent['width']);
+        // Clamp to image bounds.
+        if ($bbox['x'] + $bbox['width'] > $image->width) {
+            $bbox['x'] = max(0, $image->width - $bbox['width']);
         }
-        if ($extent['y'] + $extent['height'] > $image->height) {
-            $extent['y'] = max(0, $image->height - $extent['height']);
+        if ($bbox['y'] + $bbox['height'] > $image->height) {
+            $bbox['y'] = max(0, $image->height - $bbox['height']);
         }
 
-        return $extent;
+        return $bbox;
     }
 }

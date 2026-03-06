@@ -30,11 +30,11 @@ class EmbeddingAvailable implements ShouldBroadcastNow
     public $filename;
 
     /**
-     * The extent of the image (x, y, width, height) or null for full image.
+     * The bbox of the image (x, y, width, height) or null for full image.
      *
      * @var array|null
      */
-    public $extent;
+    public $bbox;
 
     /**
      * The name of the queue the job should be sent to.
@@ -55,14 +55,14 @@ class EmbeddingAvailable implements ShouldBroadcastNow
      *
      * @param string $filename
      * @param User $user
-     * @param array|null $extent Optional extent (x, y, width, height)
+     * @param array|null $bbox Optional bbox (x, y, width, height)
      * @return void
      */
-    public function __construct($filename, User $user, ?array $extent = null)
+    public function __construct($filename, User $user, ?array $bbox = null)
     {
         $this->filename = $filename;
         $this->user = $user;
-        $this->extent = $extent;
+        $this->bbox = $bbox;
     }
 
     /**
@@ -92,8 +92,8 @@ class EmbeddingAvailable implements ShouldBroadcastNow
 
         $data = ['url' => $url];
 
-        if ($this->extent !== null) {
-            $data['extent'] = $this->extent;
+        if ($this->bbox !== null) {
+            $data['bbox'] = $this->bbox;
         }
 
         return $data;

@@ -40,7 +40,7 @@ export default {
             throttleInterval: 1000,
             detailedModeActive: false,
             loadingDetailedMode: false,
-            detailedModeExtentPadding: 100,
+            detailedModeBboxPadding: 100,
         };
     },
     computed: {
@@ -110,10 +110,9 @@ export default {
                 return;
             }
 
-            // Convert y axis back to Openlayers coordinates.
-            if (this.loadingDetailedMode && response.body.extent) {
-                const extent = Object.assign({}, response.body.extent);
-                extent.y = this.image.height - extent.y - extent.height;
+            // Convert bbox to OL extent and show overlay.
+            if (this.loadingDetailedMode && response.body.bbox) {
+                const extent = this.bboxToExtent(response.body.bbox);
                 this.createExtentOverlay(extent);
             }
 
@@ -141,15 +140,14 @@ export default {
 
             // Discard detailed embedding if Magic SAM was disabled in the meantime.
             if (this.loadingDetailedMode && this.isMagicSamming) {
-                if (event.extent) {
-                    // Convert y axis back to Openlayers coordinates.
-                    event.extent.y = this.image.height - event.extent.y - event.extent.height;
-                    magicSamInteraction.setDetailedEmbedding(event.extent, event.url)
+                if (event.bbox) {
+                    const extent = this.bboxToExtent(event.bbox);
+                    magicSamInteraction.setDetailedEmbedding(extent, event.url)
                         .then(this.finishLoadingMagicSam)
                         .then(() => this.detailedModeActive = true);
                 } else {
                     // Sometimes no detailed embedding is returned, e.g. if the requested
-                    // extent is almost the full image.
+                    // bbox is almost the full image.
                     this.finishLoadingMagicSam();
                 }
 
@@ -182,6 +180,7 @@ export default {
                 Messages.danger('Could not load the image embedding.');
                 this.finishLoadingMagicSam();
                 this.resetInteractionMode();
+                this.exitDetailedMode();
             }
         },
         initMagicSamInteraction() {
@@ -224,7 +223,7 @@ export default {
             const sketchExtent = magicSamInteraction.getSketchBoundingExtent();
             if (sketchExtent) {
                 // Add padding and clamp to image bounds.
-                const padding = this.detailedModeExtentPadding;
+                const padding = this.detailedModeBboxPadding;
                 const paddedExtent = this.clampExtentToImage([
                     sketchExtent[0] - padding,
                     sketchExtent[1] - padding,
@@ -285,11 +284,17 @@ export default {
                 });
             }
         },
+        bboxToExtent(bbox) {
+            // Convert bbox {x, y, width, height} (with y in image coords) to OL extent
+            // [minX, minY, maxX, maxY] (with y in OL coords).
+            const olY = this.image.height - bbox.y - bbox.height;
+            return [bbox.x, olY, bbox.x + bbox.width, olY + bbox.height];
+        },
         createExtentOverlay(extent) {
             this.initDetailedOverlayLayer();
             this.removeDetailedOverlay();
 
-            // Full image polygon (outer ring) - counterclockwise for OpenLayers
+            // Full image polygon (outer ring) - counterclockwise for OpenLayers.
             const fullImage = [
                 [0, 0],
                 [this.image.width, 0],
@@ -298,19 +303,19 @@ export default {
                 [0, 0],
             ];
 
-            // Extent hole (inner ring) - clockwise for OpenLayers to create a hole
+            // Extent hole (inner ring) - clockwise for OpenLayers to create a hole.
             const extentHole = [
-                [extent.x, extent.y],
-                [extent.x, extent.y + extent.height],
-                [extent.x + extent.width, extent.y + extent.height],
-                [extent.x + extent.width, extent.y],
-                [extent.x, extent.y],
+                [extent[0], extent[1]],
+                [extent[0], extent[3]],
+                [extent[2], extent[3]],
+                [extent[2], extent[1]],
+                [extent[0], extent[1]],
             ];
 
             detailedOverlayFeature = new Feature(new Polygon([fullImage, extentHole]));
             detailedOverlayLayer.getSource().addFeature(detailedOverlayFeature);
 
-            // Create separate border feature for the hole
+            // Create separate border feature for the hole.
             detailedBorderFeature = new Feature(new Polygon([extentHole]));
             detailedBorderFeature.setStyle(new Style({
                 stroke: new Stroke({color: OVERLAY_BORDER_COLOR, width: OVERLAY_BORDER_WIDTH}),

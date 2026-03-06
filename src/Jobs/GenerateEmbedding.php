@@ -35,11 +35,11 @@ class GenerateEmbedding
     public $user;
 
     /**
-     * The extent of the image to generate an embedding for (x, y, width, height).
+     * The bbox of the image to generate an embedding for (x, y, width, height).
      *
      * @var array|null
      */
-    public $extent;
+    public $bbox;
 
     /**
      * Ignore this job if the image or user does not exist any more.
@@ -61,13 +61,13 @@ class GenerateEmbedding
      *
      * @param Image $image
      * @param User $user
-     * @param array|null $extent Optional extent (x, y, width, height)
+     * @param array|null $bbox Optional bbox (x, y, width, height)
      */
-    public function __construct(Image $image, User $user, ?array $extent = null)
+    public function __construct(Image $image, User $user, ?array $bbox = null)
     {
         $this->image = $image;
         $this->user = $user;
-        $this->extent = $extent;
+        $this->bbox = $bbox;
     }
 
     /**
@@ -93,7 +93,7 @@ class GenerateEmbedding
                 $disk->put($filename, $embedding);
             }
 
-            EmbeddingAvailable::dispatch($filename, $this->user, $this->extent);
+            EmbeddingAvailable::dispatch($filename, $this->user, $this->bbox);
         } catch (Exception $e) {
             EmbeddingFailed::dispatch($this->user);
             throw $e;
@@ -107,8 +107,8 @@ class GenerateEmbedding
      */
     public function getFilename(): string
     {
-        if ($this->extent) {
-            return "{$this->image->id}/{$this->extent['x']}_{$this->extent['y']}_{$this->extent['width']}_{$this->extent['height']}.npy";
+        if ($this->bbox) {
+            return "{$this->image->id}/{$this->bbox['x']}_{$this->bbox['y']}_{$this->bbox['width']}_{$this->bbox['height']}.npy";
         }
 
         return "{$this->image->id}.npy";
@@ -139,12 +139,12 @@ class GenerateEmbedding
             $image = $image->flatten();
         }
 
-        if ($this->extent) {
+        if ($this->bbox) {
             $image = $image->crop(
-                $this->extent['x'],
-                $this->extent['y'],
-                $this->extent['width'],
-                $this->extent['height']
+                $this->bbox['x'],
+                $this->bbox['y'],
+                $this->bbox['width'],
+                $this->bbox['height']
             );
         }
 

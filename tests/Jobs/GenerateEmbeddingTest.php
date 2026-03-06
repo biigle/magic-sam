@@ -151,7 +151,7 @@ class GenerateEmbeddingTest extends TestCase
         $this->assertFalse(Cache::has($cacheKey));
     }
 
-    public function testHandleWithExtent()
+    public function testHandleWithBbox()
     {
         Event::fake();
         $disk = Storage::fake('test');
@@ -161,8 +161,8 @@ class GenerateEmbeddingTest extends TestCase
         $disk->put('files/test-image.jpg', 'abc');
         $user = User::factory()->create();
 
-        $extent = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
-        $job = new GenerateEmbeddingStub($image, $user, $extent);
+        $bbox = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
+        $job = new GenerateEmbeddingStub($image, $user, $bbox);
 
         $job->handle();
 
@@ -170,16 +170,16 @@ class GenerateEmbeddingTest extends TestCase
         $this->assertEquals('response', $disk->get($expectedFilename));
         $this->assertTrue($job->pythonCalled);
 
-        Event::assertDispatched(function (EmbeddingAvailable $event) use ($user, $image, $extent) {
+        Event::assertDispatched(function (EmbeddingAvailable $event) use ($user, $image, $bbox) {
             $this->assertEquals($user->id, $event->user->id);
             $this->assertEquals("{$image->id}/100_200_1024_1024.npy", $event->filename);
-            $this->assertEquals($extent, $event->extent);
+            $this->assertEquals($bbox, $event->bbox);
 
             return true;
         });
     }
 
-    public function testHandleWithExtentExists()
+    public function testHandleWithBboxExists()
     {
         Event::fake();
         $disk = Storage::fake('test');
@@ -190,14 +190,14 @@ class GenerateEmbeddingTest extends TestCase
         $disk->put("{$image->id}/100_200_1024_1024.npy", 'existing');
         $user = User::factory()->create();
 
-        $extent = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
-        $job = new GenerateEmbeddingStub($image, $user, $extent);
+        $bbox = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
+        $job = new GenerateEmbeddingStub($image, $user, $bbox);
 
         $job->handle();
         $this->assertFalse($job->pythonCalled);
 
-        Event::assertDispatched(function (EmbeddingAvailable $event) use ($extent) {
-            $this->assertEquals($extent, $event->extent);
+        Event::assertDispatched(function (EmbeddingAvailable $event) use ($bbox) {
+            $this->assertEquals($bbox, $event->bbox);
 
             return true;
         });
@@ -208,13 +208,13 @@ class GenerateEmbeddingTest extends TestCase
         $image = Image::factory()->create();
         $user = User::factory()->create();
 
-        // Without extent
+        // Without bbox.
         $job = new GenerateEmbedding($image, $user);
         $this->assertEquals("{$image->id}.npy", $job->getFilename());
 
-        // With extent
-        $extent = ['x' => 50, 'y' => 75, 'width' => 512, 'height' => 512];
-        $job = new GenerateEmbedding($image, $user, $extent);
+        // With bbox.
+        $bbox = ['x' => 50, 'y' => 75, 'width' => 512, 'height' => 512];
+        $job = new GenerateEmbedding($image, $user, $bbox);
         $this->assertEquals("{$image->id}/50_75_512_512.npy", $job->getFilename());
     }
 }

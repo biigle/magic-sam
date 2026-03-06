@@ -96,7 +96,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         Queue::assertPushed(GenerateEmbedding::class, 2);
     }
 
-    public function testStoreWithExtent()
+    public function testStoreWithBbox()
     {
         config([
             'magic_sam.request_queue' => 'quick',
@@ -122,7 +122,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ->assertStatus(200)
             ->assertJson([
                 'url' => null,
-                'extent' => [
+                'bbox' => [
                     'x' => 100,
                     'y' => 200,
                     'width' => 1024,
@@ -137,13 +137,13 @@ class ImageEmbeddingControllerTest extends ApiTestCase
                 'y' => 200,
                 'width' => 1024,
                 'height' => 1024,
-            ], $job->extent);
+            ], $job->bbox);
 
             return true;
         });
     }
 
-    public function testStoreWithExtentExists()
+    public function testStoreWithBboxExists()
     {
         Queue::fake();
         config([
@@ -170,15 +170,15 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ])
             ->assertStatus(200)
             ->assertJsonPath('url', fn ($url) => !is_null($url))
-            ->assertJsonPath('extent.x', 100)
-            ->assertJsonPath('extent.y', 200)
-            ->assertJsonPath('extent.width', 1024)
-            ->assertJsonPath('extent.height', 1024);
+            ->assertJsonPath('bbox.x', 100)
+            ->assertJsonPath('bbox.y', 200)
+            ->assertJsonPath('bbox.width', 1024)
+            ->assertJsonPath('bbox.height', 1024);
 
         Queue::assertNothingPushed();
     }
 
-    public function testStoreWithExtentCovered()
+    public function testStoreWithBboxCovered()
     {
         Queue::fake();
         config([
@@ -197,8 +197,8 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         $disk->put("{$image->id}/0_0_1024_1024.npy", 'abc');
 
         $this->beEditor();
-        // Request smaller extent within the existing embedding
-        // Should return the cached extent, not the requested extent
+        // Request smaller bbox within the existing embedding.
+        // Should return the cached bbox, not the requested bbox.
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 100,
@@ -208,15 +208,15 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ])
             ->assertStatus(200)
             ->assertJsonPath('url', fn ($url) => !is_null($url))
-            ->assertJsonPath('extent.x', 0)
-            ->assertJsonPath('extent.y', 0)
-            ->assertJsonPath('extent.width', 1024)
-            ->assertJsonPath('extent.height', 1024);
+            ->assertJsonPath('bbox.x', 0)
+            ->assertJsonPath('bbox.y', 0)
+            ->assertJsonPath('bbox.width', 1024)
+            ->assertJsonPath('bbox.height', 1024);
 
         Queue::assertNothingPushed();
     }
 
-    public function testStoreWithExtentExpanded()
+    public function testStoreWithBboxExpanded()
     {
         config([
             'magic_sam.embedding_storage_disk' => 'test',
@@ -231,7 +231,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         ]);
 
         $this->beEditor();
-        // Request small extent that needs to be expanded
+        // Request small bbox that needs to be expanded.
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 500,
@@ -242,7 +242,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ->assertStatus(200)
             ->assertJson([
                 'url' => null,
-                'extent' => [
+                'bbox' => [
                     'x' => 38,
                     'y' => 38,
                     'width' => 1024,
@@ -252,14 +252,14 @@ class ImageEmbeddingControllerTest extends ApiTestCase
 
         Queue::assertPushed(function (GenerateEmbedding $job) {
             // Extent should be expanded and centered
-            $this->assertEquals(1024, $job->extent['width']);
-            $this->assertEquals(1024, $job->extent['height']);
+            $this->assertEquals(1024, $job->bbox['width']);
+            $this->assertEquals(1024, $job->bbox['height']);
 
             return true;
         });
     }
 
-    public function testStoreWithExtentValidation()
+    public function testStoreWithBboxValidation()
     {
         config(['magic_sam.embedding_storage_disk' => 'test']);
         Queue::fake();
@@ -296,7 +296,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         Queue::assertNothingPushed();
     }
 
-    public function testStoreWithExtentClamped()
+    public function testStoreWithBboxClamped()
     {
         config([
             'magic_sam.embedding_storage_disk' => 'test',
@@ -311,7 +311,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         ]);
 
         $this->beEditor();
-        // Request extent at edge that will be expanded and clamped
+        // Request bbox at edge that will be expanded and clamped.
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 900,
@@ -322,7 +322,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ->assertStatus(200)
             ->assertJson([
                 'url' => null,
-                'extent' => [
+                'bbox' => [
                     'x' => 0,
                     'y' => 0,
                     'width' => 1000,
@@ -337,13 +337,13 @@ class ImageEmbeddingControllerTest extends ApiTestCase
                 'y' => 0,
                 'width' => 1000,
                 'height' => 1000,
-            ], $job->extent);
+            ], $job->bbox);
 
             return true;
         });
     }
 
-    public function testStoreWithExtentStartOutOfBounds()
+    public function testStoreWithBboxStartOutOfBounds()
     {
         config(['magic_sam.embedding_storage_disk' => 'test']);
         Queue::fake();
@@ -373,7 +373,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         Queue::assertNothingPushed();
     }
 
-    public function testStoreWithExtentEndOutOfBounds()
+    public function testStoreWithBboxEndOutOfBounds()
     {
         config(['magic_sam.embedding_storage_disk' => 'test']);
         Queue::fake();
@@ -404,7 +404,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         Queue::assertNothingPushed();
     }
 
-    public function testStoreWithExtentResolutionThreshold()
+    public function testStoreWithBboxResolutionThreshold()
     {
         Queue::fake();
         config([
@@ -424,7 +424,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         $disk->put("{$image->id}/400_400_1500_1500.npy", 'abc');
 
         $this->beEditor();
-        // Request small extent that would expand to 1024x1024
+        // Request small bbox that would expand to 1024x1024.
         // Cached 1500x1500 is 46% larger, exceeds 20% threshold
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
@@ -440,7 +440,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         Queue::assertPushed(GenerateEmbedding::class);
     }
 
-    public function testStoreWithExtentResolutionThresholdAccepts()
+    public function testStoreWithBboxResolutionThresholdAccepts()
     {
         Queue::fake();
         config([
@@ -460,7 +460,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         $disk->put("{$image->id}/400_400_1100_1100.npy", 'abc');
 
         $this->beEditor();
-        // Request small extent that would expand to 1024x1024
+        // Request small bbox that would expand to 1024x1024.
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
                 'x' => 500,
@@ -470,15 +470,15 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ])
             ->assertStatus(200)
             ->assertJsonPath('url', fn ($url) => !is_null($url))
-            ->assertJsonPath('extent.x', 400)
-            ->assertJsonPath('extent.y', 400)
-            ->assertJsonPath('extent.width', 1100)
-            ->assertJsonPath('extent.height', 1100);
+            ->assertJsonPath('bbox.x', 400)
+            ->assertJsonPath('bbox.y', 400)
+            ->assertJsonPath('bbox.width', 1100)
+            ->assertJsonPath('bbox.height', 1100);
 
         Queue::assertNothingPushed();
     }
 
-    public function testStoreWithExtentPrefersSmallest()
+    public function testStoreWithBboxPrefersSmallest()
     {
         Queue::fake();
         config([
@@ -510,8 +510,8 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ])
             ->assertStatus(200)
             ->assertJsonPath('url', fn ($url) => !is_null($url))
-            ->assertJsonPath('extent.width', 1050)
-            ->assertJsonPath('extent.height', 1050);
+            ->assertJsonPath('bbox.width', 1050)
+            ->assertJsonPath('bbox.height', 1050);
 
         Queue::assertNothingPushed();
     }
@@ -536,7 +536,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         $disk->put("{$image->id}.npy", 'full-image');
 
         $this->beEditor();
-        // Request extent that's within threshold of full image (1900x1900 is 95% of 2000x2000)
+        // Request bbox that's within threshold of full image (1900x1900 is 95% of 2000x2000).
         // With threshold 0.2, acceptable range is 1600-2400, so 1900 should match
         $this
             ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
@@ -547,7 +547,7 @@ class ImageEmbeddingControllerTest extends ApiTestCase
             ])
             ->assertStatus(200)
             ->assertJsonPath('url', fn ($url) => !is_null($url))
-            ->assertJsonPath('extent', null);
+            ->assertJsonPath('bbox', null);
 
         Queue::assertNothingPushed();
     }
