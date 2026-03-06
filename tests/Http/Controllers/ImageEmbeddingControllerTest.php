@@ -515,4 +515,40 @@ class ImageEmbeddingControllerTest extends ApiTestCase
 
         Queue::assertNothingPushed();
     }
+
+    public function testFindCoveringEmbeddingCloseToFullImage()
+    {
+        Queue::fake();
+        config([
+            'magic_sam.embedding_storage_disk' => 'test',
+            'magic_sam.model_input_size' => 1024,
+            'magic_sam.resolution_threshold' => 0.2,
+        ]);
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'width' => 2000,
+            'height' => 2000,
+        ]);
+
+        $disk = Storage::fake('test');
+        // Full image embedding exists
+        $disk->put("{$image->id}.npy", 'full-image');
+
+        $this->beEditor();
+        // Request extent that's within threshold of full image (1900x1900 is 95% of 2000x2000)
+        // With threshold 0.2, acceptable range is 1600-2400, so 1900 should match
+        $this
+            ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+                'x' => 50,
+                'y' => 50,
+                'width' => 1900,
+                'height' => 1900,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('url', fn ($url) => !is_null($url))
+            ->assertJsonPath('extent', null);
+
+        Queue::assertNothingPushed();
+    }
 }
