@@ -30,6 +30,16 @@
     }
 }
 
+.control-button.magic-sam-detailed-mode {
+  &:hover {
+        background-color: darken(yellow, 17%);
+    }
+
+    &.active {
+        background-color: darken(yellow, 10%);
+    }
+}
+
 @keyframes magic-sam-star-1 {
   0% {
     offset-distance: 0%;

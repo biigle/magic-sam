@@ -35,7 +35,7 @@ export default {
         magicSamButtonClass() {
             return {
                 'loading-magic-sam-long': this.loadingMagicSamTakesLong,
-                'control-button--success': this.detailedModeActive,
+                'magic-sam-detailed-mode': this.detailedModeActive,
             };
         },
         magicSamButtonTitle() {

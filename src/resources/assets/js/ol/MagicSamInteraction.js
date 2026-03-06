@@ -92,6 +92,7 @@ class MagicSamInteraction extends PointerInteraction {
         this.lastCoordinate = null;
         this.detailedOverlayLayer = new VectorLayer({
             updateWhileAnimating: true,
+            updateWhileInteracting: true,
             source: new VectorSource(),
             map: this.map,
             zIndex: 199,
@@ -320,7 +321,7 @@ class MagicSamInteraction extends PointerInteraction {
         // Create separate border feature for the hole
         this.detailedBorderFeature = new Feature(new Polygon([extentHole]));
         this.detailedBorderFeature.setStyle(new Style({
-            stroke: new Stroke({color: 'white', width: 2}),
+            stroke: new Stroke({color: 'yellow', width: 3}),
         }));
         this.detailedOverlayLayer.getSource().addFeature(this.detailedBorderFeature);
     }
