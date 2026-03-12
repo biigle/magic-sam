@@ -35,11 +35,10 @@ const OVERLAY_BORDER_WIDTH = 3;
 export default {
     data: function () {
         return {
-            loadingMagicSam: false,
-            loadingMagicSamTakesLong: false,
-            throttleInterval: 1000,
+            magicSamloadingState: null,
+            magicSamloadingTakesLong: false,
+            magicSamThrottleInterval: 1000,
             detailedModeActive: false,
-            loadingDetailedMode: false,
             detailedModeBboxPadding: 100,
         };
     },
@@ -47,18 +46,24 @@ export default {
         isMagicSamming() {
             return this.interactionMode === 'magicSam';
         },
+        isLoadingMagicSam() {
+            return this.magicSamloadingState !== null;
+        },
+        isLoadingDetailedMode() {
+            return this.magicSamloadingState === 'loading-detailed';
+        },
         magicSamButtonClass() {
             return {
-                'loading-magic-sam-long': this.loadingMagicSamTakesLong,
+                'loading-magic-sam-long': this.magicSamloadingTakesLong,
                 'magic-sam-detailed-mode': this.detailedModeActive,
             };
         },
         magicSamButtonTitle() {
-            if (this.loadingMagicSamTakesLong) {
+            if (this.magicSamloadingTakesLong) {
                 return 'Preparing the magic for this image';
             }
 
-            if (this.loadingDetailedMode) {
+            if (this.isLoadingDetailedMode) {
                 return 'Loading detailed mode...';
             }
 
@@ -69,7 +74,7 @@ export default {
             return 'Draw a polygon using the magic SAM tool 𝗭';
         },
         magicSamTooltipText() {
-            if (!this.detailedModeActive && !this.loadingDetailedMode) {
+            if (!this.detailedModeActive && !this.isLoadingDetailedMode) {
                 return 'Press 𝗭 to toggle detailed mode';
             }
 
@@ -78,18 +83,18 @@ export default {
     },
     methods: {
         setThrottleInterval(interval) {
-            this.throttleInterval = interval;
+            this.magicSamThrottleInterval = interval;
             if (magicSamInteraction) {
                 magicSamInteraction.setThrottleInterval(interval);
             }
         },
-        startLoadingMagicSam() {
-            this.loadingMagicSam = true;
+        startLoadingFullEmbedding() {
+            this.magicSamloadingState = 'loading-full';
+            this.magicSamloadingTakesLong = false;
         },
         finishLoadingMagicSam() {
-            this.loadingMagicSam = false;
-            this.loadingMagicSamTakesLong = false;
-            this.loadingDetailedMode = false;
+            this.magicSamloadingState = null;
+            this.magicSamloadingTakesLong = false;
         },
         toggleMagicSam() {
             if (this.isMagicSamming) {
@@ -100,7 +105,7 @@ export default {
                     } else {
                         this.exitDetailedMode();
                     }
-                } else if (!this.loadingDetailedMode) {
+                } else if (!this.isLoadingDetailedMode) {
                     this.requestDetailedEmbedding();
                 }
             } else if (this.canAdd) {
@@ -116,7 +121,7 @@ export default {
             }
 
             // Convert bbox to OL extent and show overlay.
-            if (this.loadingDetailedMode && response.body.bbox) {
+            if (this.isLoadingDetailedMode && response.body.bbox) {
                 const extent = this.bboxToExtent(response.body.bbox);
                 this.createExtentOverlay(extent);
             }
@@ -125,7 +130,7 @@ export default {
                 this.handleSamEmbeddingAvailable(response.body);
             } else {
                 // Wait for the Websockets event.
-                this.loadingMagicSamTakesLong = true;
+                this.magicSamloadingTakesLong = true;
                 // Freeze interaction while loading long.
                 magicSamInteraction.freeze();
             }
@@ -143,11 +148,11 @@ export default {
 
             magicSamInteraction.unfreeze();
 
-            if (!this.loadingMagicSam) {
+            if (!this.isLoadingMagicSam) {
                 return;
             }
 
-            if (this.loadingDetailedMode) {
+            if (this.isLoadingDetailedMode) {
                 if (event.bbox) {
                     const extent = this.bboxToExtent(event.bbox);
                     magicSamInteraction.setDetailedEmbedding(extent, event.url)
@@ -184,7 +189,7 @@ export default {
                 });
         },
         handleSamEmbeddingFailed() {
-            if (this.loadingMagicSam) {
+            if (this.isLoadingMagicSam) {
                 Messages.danger('Could not load the image embedding.');
                 this.finishLoadingMagicSam();
                 this.resetInteractionMode();
@@ -200,7 +205,7 @@ export default {
                 indicatorCrossStyle: Styles.cross,
                 onnxUrl: biigle.$require('magic-sam.onnx-url'),
                 simplifyTolerant: 0.1,
-                throttleInterval: this.throttleInterval,
+                magicSamThrottleInterval: this.magicSamThrottleInterval,
                 modelInputSize: biigle.$require('magic-sam.model-input-size'),
             });
             magicSamInteraction.on('drawend', this.handleNewFeature);
@@ -257,8 +262,8 @@ export default {
             // Convert OpenLayers y axis to backend coordinates.
             bbox.y = this.image.height - bbox.y - bbox.height;
 
-            this.loadingDetailedMode = true;
-            this.loadingMagicSam = true;
+            this.magicSamloadingState = 'loading-detailed';
+            this.magicSamloadingTakesLong = false;
             ImageEmbeddingApi.save({id: this.image.id}, bbox)
                 .then(
                     this.handleSamEmbeddingRequestSuccess,
@@ -346,12 +351,12 @@ export default {
     },
     watch: {
         image(image) {
-            if (this.loadingMagicSam && loadingImageId !== image.id) {
+            if (this.isLoadingMagicSam && loadingImageId !== image.id) {
                 this.finishLoadingMagicSam();
                 this.resetInteractionMode();
             }
 
-            if (this.detailedModeActive || this.loadingDetailedMode) {
+            if (this.detailedModeActive || this.isLoadingDetailedMode) {
                 this.exitDetailedMode();
             }
 
@@ -376,7 +381,7 @@ export default {
                 return;
             }
 
-            if (this.loadingMagicSam) {
+            if (this.isLoadingMagicSam) {
                 return;
             }
 
@@ -388,7 +393,7 @@ export default {
                 return;
             }
 
-            this.startLoadingMagicSam();
+            this.startLoadingFullEmbedding();
             ImageEmbeddingApi.save({id: this.image.id}, {})
                 .then(
                     this.handleSamEmbeddingRequestSuccess,

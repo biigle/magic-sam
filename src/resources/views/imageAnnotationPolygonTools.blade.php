@@ -2,7 +2,7 @@
     icon="fa-hat-wizard"
     :title="magicSamButtonTitle"
     :active="isMagicSamming"
-    :loading="loadingMagicSam"
+    :loading="isLoadingMagicSam"
     :class="magicSamButtonClass"
     :tooltip="magicSamTooltipText"
     tooltip-closable="magic-sam-detailed-mode"
