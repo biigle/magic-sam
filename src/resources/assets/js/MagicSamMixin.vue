@@ -128,7 +128,6 @@ export default {
                 return;
             }
 
-            // Convert bbox to OL extent and show overlay.
             if (this.isLoadingDetailedMode && response.body.bbox) {
                 const extent = this.bboxToExtent(response.body.bbox);
                 this.createExtentOverlay(extent);
@@ -160,27 +159,27 @@ export default {
                 return;
             }
 
-            if (this.isLoadingDetailedMode) {
-                if (event.bbox) {
-                    const extent = this.bboxToExtent(event.bbox);
-                    magicSamInteraction.setDetailedEmbedding(extent, event.url)
-                        .then(this.finishLoadingMagicSam)
-                        .then(() => {
-                            this.detailedModeActive = true;
-                            if (this.isMagicSamming) {
-                                magicSamInteraction.setActive(true);
-                            }
-                        });
-                } else {
-                    // Sometimes no detailed embedding is returned, e.g. if the requested
-                    // bbox is almost the full image.
-                    this.finishLoadingMagicSam();
-                }
-
-                return;
+            // Sometimes no detailed embedding is returned, e.g. if the requested
+            // bbox is almost the full image so we have to check for the bbox.
+            if (this.isLoadingDetailedMode && event.bbox) {
+                this.handleDetailedEmbeddingAvailable(event);
+            } else {
+                this.handleFullEmbeddingAvailable(event);
             }
-
-
+        },
+        handleDetailedEmbeddingAvailable(event) {
+            const extent = this.bboxToExtent(event.bbox);
+            magicSamInteraction.setDetailedEmbedding(extent, event.url)
+                .then(this.finishLoadingMagicSam)
+                .then(() => {
+                    this.detailedModeActive = true;
+                    // The user could have disabled the interaction while loading.
+                    if (this.isMagicSamming) {
+                        magicSamInteraction.setActive(true);
+                    }
+                });
+        },
+        handleFullEmbeddingAvailable(event) {
             if (loadedFullImageId === this.image.id) {
                 this.finishLoadingMagicSam();
                 return;

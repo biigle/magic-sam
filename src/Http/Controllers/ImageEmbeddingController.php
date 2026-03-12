@@ -96,44 +96,26 @@ class ImageEmbeddingController extends Controller
      * @param Image $image
      * @param $disk Storage disk
      * @param array|null $originalBbox The original requested bbox
-     * @param array|null $expandedBbox The expanded bbox (target resolution)
+     * @param array|null $expandedBbox The expanded bbox (target resolution), or null if full image should be used
      * @return array|null ['filename' => string, 'bbox' => array|null]
      */
     protected function findCoveringEmbedding(Image $image, $disk, ?array $originalBbox, ?array $expandedBbox): ?array
     {
-        // Use the image dimensions as fallback for the check if the full image embedding
-        // can be used for a large requested bbox.
-        $expandedWidth = $expandedBbox['width'] ?? $image->width;
-        $expandedHeight = $expandedBbox['height'] ?? $image->height;
-
-        // Only cached embeddings are considered that have a width and height similar
-        // to the (expanded) requested bbox, within the configured tolerance.
-        $threshold = config('magic_sam.resolution_threshold');
-        $minWidth = $expandedWidth * (1 - $threshold);
-        $maxWidth = $expandedWidth * (1 + $threshold);
-        $minHeight = $expandedHeight * (1 - $threshold);
-        $maxHeight = $expandedHeight * (1 + $threshold);
-
-        // Take the full image embedding if no bbox was requested or the requested
-        // bbox almost matches the full image dimensions.
-        if (
-            !$originalBbox  ||
-            ($image->width >= $minWidth &&
-            $image->width <= $maxWidth &&
-            $image->height >= $minHeight &&
-            $image->height <= $maxHeight)
-        ) {
+        // If no expanded bbox, we want the full image embedding.
+        // This happens when no bbox was requested, or when the requested bbox
+        // is almost as large as the full image.
+        if (!$expandedBbox) {
             $filename = "{$image->id}.npy";
-
             if ($disk->exists($filename)) {
                 return ['filename' => $filename, 'bbox' => null];
             }
-
             return null;
         }
 
+        // Only cached embeddings are considered that have a width and height similar
+        // to the (expanded) requested bbox, within the configured tolerance.
+        $range = $this->getResolutionRange($expandedBbox['width'], $expandedBbox['height']);
 
-        // Otherwise we look for an embedding matching the bbox.
         $directory = (string) $image->id;
 
         if (!$disk->exists($directory)) {
@@ -169,10 +151,10 @@ class ImageEmbeddingController extends Controller
 
             // Ignore if cached size is not similar to requested size.
             if (
-                $cached['width'] < $minWidth ||
-                $cached['width'] > $maxWidth ||
-                $cached['height'] < $minHeight ||
-                $cached['height'] > $maxHeight
+                $cached['width'] < $range['minWidth'] ||
+                $cached['width'] > $range['maxWidth'] ||
+                $cached['height'] < $range['minHeight'] ||
+                $cached['height'] > $range['maxHeight']
             ) {
                 continue;
             }
@@ -190,8 +172,9 @@ class ImageEmbeddingController extends Controller
 
     /**
      * Expand bbox to a square with at least the minimum model input size.
+     * Returns null if the expanded bbox would be almost as large as the full image.
      */
-    protected function expandBbox(Image $image, array $bbox): array
+    protected function expandBbox(Image $image, array $bbox): ?array
     {
         $minSize = config('magic_sam.model_input_size');
 
@@ -220,6 +203,40 @@ class ImageEmbeddingController extends Controller
             $bbox['y'] = max(0, $image->height - $bbox['height']);
         }
 
+        // If the expanded bbox is almost as large as the full image,
+        // return null to trigger full image embedding generation instead.
+        $range = $this->getResolutionRange($bbox['width'], $bbox['height']);
+
+        if (
+            // Tiled images never get a full-image embedding.
+            !$image->tiled &&
+            $image->width >= $range['minWidth'] &&
+            $image->width <= $range['maxWidth'] &&
+            $image->height >= $range['minHeight'] &&
+            $image->height <= $range['maxHeight']
+        ) {
+            return null;
+        }
+
         return $bbox;
+    }
+
+    /**
+     * Calculate resolution range for matching embeddings within threshold.
+     *
+     * @param int $width
+     * @param int $height
+     * @return array ['minWidth' => float, 'maxWidth' => float, 'minHeight' => float, 'maxHeight' => float]
+     */
+    protected function getResolutionRange(int $width, int $height): array
+    {
+        $threshold = config('magic_sam.resolution_threshold');
+
+        return [
+            'minWidth' => $width * (1 - $threshold),
+            'maxWidth' => $width * (1 + $threshold),
+            'minHeight' => $height * (1 - $threshold),
+            'maxHeight' => $height * (1 + $threshold),
+        ];
     }
 }

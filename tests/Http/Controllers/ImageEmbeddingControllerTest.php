@@ -366,24 +366,12 @@ class ImageEmbeddingControllerTest extends ApiTestCase
                 'height' => 100,
             ])
             ->assertStatus(200)
-            ->assertJson([
-                'url' => null,
-                'bbox' => [
-                    'x' => 0,
-                    'y' => 0,
-                    'width' => 1000,
-                    'height' => 1000,
-                ],
-            ]);
+            ->assertJson(['url' => null]);
 
         Queue::assertPushed(function (GenerateEmbedding $job) {
-            // Extent should be expanded and clamped to fit within image
-            $this->assertEquals([
-                'x' => 0,
-                'y' => 0,
-                'width' => 1000,
-                'height' => 1000,
-            ], $job->bbox);
+            // The bbox is clamped to the image bounds, so a full image embedding will
+            // be generated.
+            $this->assertNull($job->bbox);
 
             return true;
         });
@@ -628,5 +616,46 @@ class ImageEmbeddingControllerTest extends ApiTestCase
         ])->assertStatus(200);
 
         Queue::assertPushed(GenerateEmbedding::class);
+    }
+
+    public function testStoreTiledImageExpandedToFullImage()
+    {
+        config([
+            'magic_sam.embedding_storage_disk' => 'test',
+            'magic_sam.model_input_size' => 1024,
+        ]);
+        Queue::fake();
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'tiled' => true,
+            'width' => 1000,
+            'height' => 1000,
+        ]);
+
+        $this->beEditor();
+        // Request bbox at edge that will be expanded and clamped to full image dimensions.
+        // For tiled images, this should generate a bbox embedding (not null), even though
+        // the bbox matches the full image dimensions.
+        $this
+            ->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+                'x' => 900,
+                'y' => 900,
+                'width' => 100,
+                'height' => 100,
+            ])
+            ->assertStatus(200)
+            ->assertJson(['url' => null]);
+
+        Queue::assertPushed(function (GenerateEmbedding $job) {
+            // For tiled images, should generate bbox embedding even if it covers the full image
+            $this->assertNotNull($job->bbox);
+            $this->assertEquals(0, $job->bbox['x']);
+            $this->assertEquals(0, $job->bbox['y']);
+            $this->assertEquals(1000, $job->bbox['width']);
+            $this->assertEquals(1000, $job->bbox['height']);
+
+            return true;
+        });
     }
 }
