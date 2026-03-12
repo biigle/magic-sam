@@ -16,7 +16,7 @@ import {Styles} from './import.js';
 import {Events} from './import.js';
 
 let magicSamInteraction;
-let loadedImageId;
+let loadedFullImageId;
 let loadingImageId;
 let detailedOverlayLayer;
 let detailedOverlayFeature;
@@ -94,11 +94,16 @@ export default {
         toggleMagicSam() {
             if (this.isMagicSamming) {
                 if (this.detailedModeActive) {
-                    this.exitDetailedMode();
+                    if (this.image.tiled) {
+                        // For tiled images there is only detailed mode.
+                        this.resetInteractionMode();
+                    } else {
+                        this.exitDetailedMode();
+                    }
                 } else if (!this.loadingDetailedMode) {
                     this.requestDetailedEmbedding();
                 }
-            } else if (this.canAdd && !this.image.tiled) {
+            } else if (this.canAdd) {
                 if (!magicSamInteraction) {
                     this.initMagicSamInteraction();
                 }
@@ -138,13 +143,21 @@ export default {
 
             magicSamInteraction.unfreeze();
 
-            // Discard detailed embedding if Magic SAM was disabled in the meantime.
-            if (this.loadingDetailedMode && this.isMagicSamming) {
+            if (!this.loadingMagicSam) {
+                return;
+            }
+
+            if (this.loadingDetailedMode) {
                 if (event.bbox) {
                     const extent = this.bboxToExtent(event.bbox);
                     magicSamInteraction.setDetailedEmbedding(extent, event.url)
                         .then(this.finishLoadingMagicSam)
-                        .then(() => this.detailedModeActive = true);
+                        .then(() => {
+                            this.detailedModeActive = true;
+                            if (this.isMagicSamming) {
+                                magicSamInteraction.setActive(true);
+                            }
+                        });
                 } else {
                     // Sometimes no detailed embedding is returned, e.g. if the requested
                     // bbox is almost the full image.
@@ -154,21 +167,16 @@ export default {
                 return;
             }
 
-            // Regular full-image embedding
-            if (!this.loadingMagicSam) {
-                return;
-            }
 
-            if (loadedImageId === this.image.id) {
+            if (loadedFullImageId === this.image.id) {
                 this.finishLoadingMagicSam();
                 return;
             }
 
-            loadedImageId = this.image.id;
+            loadedFullImageId = this.image.id;
             magicSamInteraction.updateEmbedding(this.image, event.url)
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
-                    magicSamInteraction.unfreeze();
                     // The user could have disabled the interaction while loading.
                     if (this.isMagicSamming) {
                         magicSamInteraction.setActive(true);
@@ -363,7 +371,7 @@ export default {
                 return;
             }
 
-            if (loadedImageId === this.image.id) {
+            if (loadedFullImageId === this.image.id) {
                 magicSamInteraction.setActive(true);
                 return;
             }
@@ -373,6 +381,13 @@ export default {
             }
 
             loadingImageId = this.image.id;
+
+            // Tiled images only support detailed mode.
+            if (this.image.tiled) {
+                this.requestDetailedEmbedding();
+                return;
+            }
+
             this.startLoadingMagicSam();
             ImageEmbeddingApi.save({id: this.image.id}, {})
                 .then(

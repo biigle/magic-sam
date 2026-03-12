@@ -183,6 +183,11 @@ class MagicSamInteraction extends PointerInteraction {
     }
 
     _handleMove(e) {
+        // Because of the throttling, this could be called after the interactions was disabled.
+        if (!this.getActive()) {
+            return;
+        }
+
         const detailedMode = this.isDetailedModeActive();
         let xCoord;
         let yCoord;

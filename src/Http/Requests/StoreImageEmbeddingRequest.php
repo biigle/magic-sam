@@ -58,6 +58,12 @@ class StoreImageEmbeddingRequest extends FormRequest
                 return;
             }
 
+            // Tiled images require a bbox.
+            if ($this->image->tiled && !$this->hasBbox()) {
+                $validator->errors()->add('bbox', 'Bbox is required for tiled images.');
+                return;
+            }
+
             if (!$this->hasBbox()) {
                 return;
             }

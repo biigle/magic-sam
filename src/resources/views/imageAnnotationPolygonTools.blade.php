@@ -1,11 +1,4 @@
 <control-button
-    v-if="image?.tiled"
-    icon="fa-hat-wizard"
-    title="The magic SAM tool is not available for very large images"
-    :disabled="true"
-    ></control-button>
-<control-button
-    v-else
     icon="fa-hat-wizard"
     :title="magicSamButtonTitle"
     :active="isMagicSamming"

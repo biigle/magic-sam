@@ -597,4 +597,36 @@ class ImageEmbeddingControllerTest extends ApiTestCase
 
         Queue::assertNothingPushed();
     }
+
+    public function testStoreTiledImageRequiresBbox()
+    {
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+        Queue::fake();
+
+        $image = Image::factory()->create([
+            'volume_id' => $this->volume()->id,
+            'tiled' => true,
+            'width' => 10000,
+            'height' => 10000,
+        ]);
+
+        $this->beEditor();
+
+        // Tiled image without bbox should fail
+        $this->postJson("/api/v1/images/{$image->id}/sam-embedding")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['bbox']);
+
+        Queue::assertNothingPushed();
+
+        // Tiled image with bbox should succeed
+        $this->postJson("/api/v1/images/{$image->id}/sam-embedding", [
+            'x' => 1000,
+            'y' => 1000,
+            'width' => 2000,
+            'height' => 2000,
+        ])->assertStatus(200);
+
+        Queue::assertPushed(GenerateEmbedding::class);
+    }
 }
