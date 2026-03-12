@@ -66,6 +66,14 @@ return [
     'model_input_size' => env('MAGIC_SAM_MODEL_INPUT_SIZE', 1024),
 
     /*
+     | Resolution threshold for reusing cached extent-based embeddings.
+     | When a cached embedding is found, it will only be reused if its dimensions are
+     | within this threshold (as a fraction) of the target expanded extent.
+     | This ensures embeddings are reused only when resolution is similar.
+     */
+    'resolution_threshold' => env('MAGIC_SAM_RESOLUTION_THRESHOLD', 0.1),
+
+    /*
      | Specifies the time in days after which an image embedding file will be deleted
      | again.
      */
@@ -81,5 +89,10 @@ return [
     | Request timeout in seconds for the GenerateEmbeddingWorker service.
     */
     'worker_timeout' => env('MAGIC_SAM_WORKER_TIMEOUT', 60),
+
+    /*
+    | Maximum number of parallel GenerateEmbedding jobs per user.
+    */
+    'max_parallel_jobs_per_user' => env('MAGIC_SAM_MAX_PARALLEL_JOBS_PER_USER', 1),
 
 ];

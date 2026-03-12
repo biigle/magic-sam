@@ -2,6 +2,7 @@
     position: relative;
 
     &:before, &:after {
+        z-index: 1000;
         font-family: "Font Awesome 5 Free";
         font-weight: 400;
         font-size: 80%;
@@ -26,6 +27,16 @@
             animation: magic-sam-star-2 2.5s infinite ease-out;
             animation-delay: 1.5s;
         }
+    }
+}
+
+.control-button.magic-sam-detailed-mode {
+  &:hover {
+        background-color: darken(yellow, 17%);
+    }
+
+    &.active {
+        background-color: darken(yellow, 10%);
     }
 }
 

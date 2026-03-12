@@ -8,6 +8,7 @@ use Biigle\Modules\MagicSam\Events\EmbeddingFailed;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
 use Biigle\User;
 use Exception;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -85,6 +86,136 @@ class GenerateEmbeddingTest extends TestCase
 
             return true;
         });
+    }
+
+    public function testHandleDecrementsCounter()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+        $job = new GenerateEmbeddingStub($image, $user);
+
+        $cacheKey = GenerateEmbedding::getPendingJobsCacheKey($user);
+        Cache::put($cacheKey, 3);
+
+        $job->handle();
+
+        $this->assertEquals(2, Cache::get($cacheKey));
+    }
+
+    public function testHandleDecrementsCounterOnException()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+        $job = new GenerateEmbeddingStub($image, $user);
+        $job->throw = true;
+
+        $cacheKey = GenerateEmbedding::getPendingJobsCacheKey($user);
+        Cache::put($cacheKey, 3);
+
+        try {
+            $job->handle();
+            $this->fail('Expected an exception');
+        } catch (Exception $e) {
+            // Expected
+        }
+
+        $this->assertEquals(2, Cache::get($cacheKey));
+    }
+
+    public function testHandleDeletesCacheKeyWhenZero()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+        $job = new GenerateEmbeddingStub($image, $user);
+
+        $cacheKey = GenerateEmbedding::getPendingJobsCacheKey($user);
+        Cache::put($cacheKey, 1);
+
+        $job->handle();
+
+        $this->assertFalse(Cache::has($cacheKey));
+    }
+
+    public function testHandleWithBbox()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $user = User::factory()->create();
+
+        $bbox = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
+        $job = new GenerateEmbeddingStub($image, $user, $bbox);
+
+        $job->handle();
+
+        $expectedFilename = "{$image->id}/100_200_1024_1024.npy";
+        $this->assertEquals('response', $disk->get($expectedFilename));
+        $this->assertTrue($job->pythonCalled);
+
+        Event::assertDispatched(function (EmbeddingAvailable $event) use ($user, $image, $bbox) {
+            $this->assertEquals($user->id, $event->user->id);
+            $this->assertEquals("{$image->id}/100_200_1024_1024.npy", $event->filename);
+            $this->assertEquals($bbox, $event->bbox);
+
+            return true;
+        });
+    }
+
+    public function testHandleWithBboxExists()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create();
+        $disk->put('files/test-image.jpg', 'abc');
+        $disk->put("{$image->id}/100_200_1024_1024.npy", 'existing');
+        $user = User::factory()->create();
+
+        $bbox = ['x' => 100, 'y' => 200, 'width' => 1024, 'height' => 1024];
+        $job = new GenerateEmbeddingStub($image, $user, $bbox);
+
+        $job->handle();
+        $this->assertFalse($job->pythonCalled);
+
+        Event::assertDispatched(function (EmbeddingAvailable $event) use ($bbox) {
+            $this->assertEquals($bbox, $event->bbox);
+
+            return true;
+        });
+    }
+
+    public function testGetFilename()
+    {
+        $image = Image::factory()->create();
+        $user = User::factory()->create();
+
+        // Without bbox.
+        $job = new GenerateEmbedding($image, $user);
+        $this->assertEquals("{$image->id}.npy", $job->getFilename());
+
+        // With bbox.
+        $bbox = ['x' => 50, 'y' => 75, 'width' => 512, 'height' => 512];
+        $job = new GenerateEmbedding($image, $user, $bbox);
+        $this->assertEquals("{$image->id}/50_75_512_512.npy", $job->getFilename());
     }
 }
 
