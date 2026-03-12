@@ -97,22 +97,30 @@ export default {
             this.magicSamloadingTakesLong = false;
         },
         toggleMagicSam() {
-            if (this.isMagicSamming) {
-                if (this.detailedModeActive) {
-                    if (this.image.tiled) {
-                        // For tiled images there is only detailed mode.
-                        this.resetInteractionMode();
-                    } else {
-                        this.exitDetailedMode();
-                    }
-                } else if (!this.isLoadingDetailedMode) {
-                    this.requestDetailedEmbedding();
-                }
-            } else if (this.canAdd) {
+            // Activate Magic SAM.
+            if (!this.isMagicSamming) {
+                if (!this.canAdd) return;
+
                 if (!magicSamInteraction) {
                     this.initMagicSamInteraction();
                 }
                 this.interactionMode = 'magicSam';
+                return;
+            }
+
+            // Already active. Toggle detailed mode.
+            if (!this.detailedModeActive) {
+                if (!this.isLoadingDetailedMode) {
+                    this.requestDetailedEmbedding();
+                }
+                return;
+            }
+
+            // For tiled images, only detailed mode is allowed.
+            if (this.image.tiled) {
+                this.resetInteractionMode();
+            } else {
+                this.exitDetailedMode();
             }
         },
         handleSamEmbeddingRequestSuccess(response) {
