@@ -16,8 +16,8 @@ import {Styles} from './import.js';
 import {Events} from './import.js';
 
 let magicSamInteraction;
-let loadedFullImageId;
-let loadingImageId;
+let cachedFullImageId;
+let requestedImageId;
 let detailedOverlayLayer;
 let detailedOverlayFeature;
 let detailedBorderFeature;
@@ -124,7 +124,7 @@ export default {
             }
         },
         handleSamEmbeddingRequestSuccess(response) {
-            if (this.image.id !== loadingImageId) {
+            if (this.image.id !== requestedImageId) {
                 return;
             }
 
@@ -148,7 +148,7 @@ export default {
             handleErrorResponse(response);
         },
         handleSamEmbeddingAvailable(event) {
-            if (this.image.id !== loadingImageId) {
+            if (this.image.id !== requestedImageId) {
                 this.finishLoadingMagicSam();
                 return;
             }
@@ -180,12 +180,12 @@ export default {
                 });
         },
         handleFullEmbeddingAvailable(event) {
-            if (loadedFullImageId === this.image.id) {
+            if (cachedFullImageId === this.image.id) {
                 this.finishLoadingMagicSam();
                 return;
             }
 
-            loadedFullImageId = this.image.id;
+            cachedFullImageId = this.image.id;
             magicSamInteraction.updateEmbedding(this.image, event.url)
                 .then(this.finishLoadingMagicSam)
                 .then(() => {
@@ -358,7 +358,7 @@ export default {
     },
     watch: {
         image(image) {
-            if (this.isLoadingMagicSam && loadingImageId !== image.id) {
+            if (this.isLoadingMagicSam && requestedImageId !== image.id) {
                 this.finishLoadingMagicSam();
                 this.resetInteractionMode();
             }
@@ -383,7 +383,7 @@ export default {
                 return;
             }
 
-            if (loadedFullImageId === this.image.id) {
+            if (cachedFullImageId === this.image.id) {
                 magicSamInteraction.setActive(true);
                 return;
             }
@@ -392,7 +392,7 @@ export default {
                 return;
             }
 
-            loadingImageId = this.image.id;
+            requestedImageId = this.image.id;
 
             // Tiled images only support detailed mode.
             if (this.image.tiled) {
