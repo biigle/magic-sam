@@ -12,7 +12,6 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
 use Jcupitt\Vips\Image as VipsImage;
@@ -152,19 +151,24 @@ class GenerateEmbedding
 
             if ($tileInfo['tile_count'] <= self::MAX_TILES_THRESHOLD) {
                 try {
-                    $image = $this->getVipsImageFromZoomifyTiles($tileInfo, $inputSize);
+                    $image = $this->getVipsImageFromZoomifyTiles($tileInfo);
                 } catch (Exception $e) {
                     Log::warning("Failed to load Zoomify tiles for image {$this->image->id}, falling back to full image: {$e->getMessage()}");
                 }
             }
         }
 
-        $image = $image ?? $this->getVipsImageFromFullImage($path, $inputSize);
+        $image = $image ?? $this->getVipsImageFromFullImage($path);
 
         // Make sure the image is in RGB format before sending it to the pyworker.
         $image = $image->colourspace('srgb');
         if ($image->hasAlpha()) {
             $image = $image->flatten();
+        }
+
+        $factor = $inputSize / max($image->width, $image->height);
+        if ($factor < 1) {
+            $image = $image->resize($factor);
         }
 
         return $image->writeToBuffer('.png');
@@ -173,7 +177,7 @@ class GenerateEmbedding
     /**
      * Load the full image, crop to bbox if set, and resize for the Python worker.
      */
-    protected function getVipsImageFromFullImage(string $path, int $modelInputSize): VipsImage
+    protected function getVipsImageFromFullImage(string $path): VipsImage
     {
         // Sequential access is used for memory efficiency on large files.
         $image = VipsImage::newFromFile($path, ['access' => 'sequential']);
@@ -185,11 +189,6 @@ class GenerateEmbedding
                 $this->bbox['width'],
                 $this->bbox['height']
             );
-        }
-
-        $factor = $modelInputSize / max($image->width, $image->height);
-        if ($factor < 1) {
-            $image = $image->resize($factor);
         }
 
         return $image;
@@ -316,9 +315,8 @@ class GenerateEmbedding
      * Load and stitch Zoomify tiles for the bbox and resize for the Python worker.
      *
      * @param array $tileInfo Tile loading information from prepareTileLoadingInfo()
-     * @param int $modelInputSize Target size for the model
      */
-    protected function getVipsImageFromZoomifyTiles(array $tileInfo, int $modelInputSize): VipsImage
+    protected function getVipsImageFromZoomifyTiles(array $tileInfo): VipsImage
     {
         $disk = Storage::disk(config('image.tiles.disk'));
         $basePath = fragment_uuid_path($this->image->uuid);
@@ -349,14 +347,8 @@ class GenerateEmbedding
         // corner of the stitched tile grid (which starts at col_start/row_start).
         $cropX = $tileInfo['bbox_at_level']['x'] - $tileInfo['col_start'] * self::ZOOMIFY_TILE_SIZE;
         $cropY = $tileInfo['bbox_at_level']['y'] - $tileInfo['row_start'] * self::ZOOMIFY_TILE_SIZE;
-        $image = $stitched->crop($cropX, $cropY, $tileInfo['bbox_at_level']['width'], $tileInfo['bbox_at_level']['height']);
 
-        $factor = $modelInputSize / max($image->width, $image->height);
-        if ($factor < 1) {
-            $image = $image->resize($factor);
-        }
-
-        return $image;
+        return $stitched->crop($cropX, $cropY, $tileInfo['bbox_at_level']['width'], $tileInfo['bbox_at_level']['height']);
     }
 
     /**
