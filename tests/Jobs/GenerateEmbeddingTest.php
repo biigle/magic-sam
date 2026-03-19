@@ -203,6 +203,32 @@ class GenerateEmbeddingTest extends TestCase
         });
     }
 
+    public function testPrepareTileLoadingInfo()
+    {
+        $image = Image::factory()->create([
+            'width' => 8192,
+            'height' => 8192,
+            'tiled' => true,
+        ]);
+        $user = User::factory()->create();
+
+        $bbox = ['x' => 0, 'y' => 0, 'width' => 4096, 'height' => 4096];
+        $job = new GenerateEmbeddingStub($image, $user, $bbox);
+
+        $info = $job->getTileLoadingInfo($bbox, 1024);
+
+        $this->assertEquals(3, $info['zoom_level']);
+        $this->assertEquals(0.25, $info['scale']);
+        $this->assertEquals(['x' => 0, 'y' => 0, 'width' => 1024, 'height' => 1024], $info['bbox_at_level']);
+        $this->assertEquals(0, $info['col_start']);
+        $this->assertEquals(3, $info['col_end']);
+        $this->assertEquals(0, $info['row_start']);
+        $this->assertEquals(3, $info['row_end']);
+        $this->assertEquals(16, $info['tile_count']);
+        $this->assertEquals(21, $info['tiles_before_level']);
+        $this->assertEquals(8, $info['tiles_wide_at_level']);
+    }
+
     public function testGetFilename()
     {
         $image = Image::factory()->create();
@@ -223,6 +249,11 @@ class GenerateEmbeddingStub extends GenerateEmbedding
 {
     public $pythonCalled = false;
     public $throw = false;
+
+    public function getTileLoadingInfo(array $bbox, int $modelInputSize): array
+    {
+        return $this->prepareTileLoadingInfo($bbox, $modelInputSize);
+    }
 
     protected function getImageBufferForPyworker(string $path): string
     {
