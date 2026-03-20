@@ -75,11 +75,16 @@ class ImageEmbeddingController extends Controller
 
         Cache::increment($cacheKey);
 
-        Queue::connection(config('magic_sam.request_connection'))
-            ->pushOn(
-                config('magic_sam.request_queue'),
-                new GenerateEmbedding($image, $user, $expandedBbox)
-            );
+        try {
+            Queue::connection(config('magic_sam.request_connection'))
+                ->pushOn(
+                    config('magic_sam.request_queue'),
+                    new GenerateEmbedding($image, $user, $expandedBbox)
+                );
+        } catch (\Throwable $e) {
+            Cache::decrement($cacheKey);
+            throw $e;
+        }
 
         $response = ['url' => null];
         if ($expandedBbox) {
@@ -115,17 +120,10 @@ class ImageEmbeddingController extends Controller
         // Only cached embeddings are considered that have a width and height similar
         // to the (expanded) requested bbox, within the configured tolerance.
         $range = $this->getResolutionRange($expandedBbox['width'], $expandedBbox['height']);
-
-        $directory = (string) $image->id;
-
-        if (!$disk->exists($directory)) {
-            return null;
-        }
-
         $bestMatch = null;
         $smallestArea = PHP_INT_MAX;
 
-        foreach ($disk->files($directory) as $file) {
+        foreach ($disk->files($image->id) as $file) {
             $basename = pathinfo($file, PATHINFO_FILENAME);
             $parts = explode('_', $basename);
             if (count($parts) !== 4) {

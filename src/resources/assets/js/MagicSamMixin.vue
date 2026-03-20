@@ -212,7 +212,7 @@ export default {
                 indicatorCrossStyle: Styles.cross,
                 onnxUrl: biigle.$require('magic-sam.onnx-url'),
                 simplifyTolerant: 0.1,
-                magicSamThrottleInterval: this.magicSamThrottleInterval,
+                throttleInterval: this.magicSamThrottleInterval,
                 modelInputSize: biigle.$require('magic-sam.model-input-size'),
             });
             magicSamInteraction.on('drawend', this.handleNewFeature);
