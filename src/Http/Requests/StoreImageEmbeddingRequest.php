@@ -106,7 +106,7 @@ class StoreImageEmbeddingRequest extends FormRequest
     }
 
     /**
-     * Determine wether the request includes a bbox.
+     * Determine whether the request includes a bbox.
      *
      * @return boolean
      */
