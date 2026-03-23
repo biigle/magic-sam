@@ -167,9 +167,8 @@ class GenerateEmbedding
         }
 
         $factor = $inputSize / max($image->width, $image->height);
-        if ($factor < 1) {
-            $image = $image->resize($factor);
-        }
+        // Resize even if factor is >=1 to match the logic in MagicSamInteraction.js.
+        $image = $image->resize($factor);
 
         return $image->writeToBuffer('.png');
     }
