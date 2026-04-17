@@ -1,9 +1,16 @@
 {
+  "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm": {
+    "file": "assets/ort-wasm-simd-threaded.jsep-C887KxcQ.wasm",
+    "src": "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm"
+  },
   "src/resources/assets/js/main.js": {
-    "file": "assets/main-C-8qeEdc.js",
+    "file": "assets/main-DBLQsTFN.js",
     "name": "main",
     "src": "src/resources/assets/js/main.js",
-    "isEntry": true
+    "isEntry": true,
+    "assets": [
+      "assets/ort-wasm-simd-threaded.jsep-C887KxcQ.wasm"
+    ]
   },
   "src/resources/assets/sass/main.scss": {
     "file": "assets/main-BBu-odME.css",

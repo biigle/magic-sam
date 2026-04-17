@@ -15,6 +15,10 @@ export default defineConfig({
                     dest: 'assets',
                 },
                 {
+                    src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded*.mjs',
+                    dest: 'assets',
+                },
+                {
                     src: 'src/resources/assets/images/*',
                     dest: 'assets',
                 },
