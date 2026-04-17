@@ -22,6 +22,6 @@
     "@biigle/ol": "^9.2.4",
     "magic-wand-tool": "^1.1.7",
     "npyjs": "^0.4.0",
-    "onnxruntime-web": "1.14.0"
+    "onnxruntime-web": "1.24.3"
   }
 }
