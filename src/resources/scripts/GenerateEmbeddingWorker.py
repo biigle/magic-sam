@@ -5,6 +5,7 @@ from segment_anything import sam_model_registry
 from threading import Thread, Event
 from torch import device, no_grad, as_tensor
 from torch.cuda import is_available as cuda_is_available
+import argparse
 import fcntl
 import io
 import numpy as np
