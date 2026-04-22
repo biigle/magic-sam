@@ -5,6 +5,7 @@ from segment_anything import sam_model_registry
 from threading import Thread, Event
 from torch import device, no_grad, as_tensor
 from torch.cuda import is_available as cuda_is_available
+import argparse
 import fcntl
 import io
 import numpy as np
@@ -133,7 +134,11 @@ def worker():
         request_queue.task_done()
 
 if __name__ == '__main__':
-    httpd = ThreadingHTTPServer(('', 80), RequestHandler)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=80)
+    args = parser.parse_args()
+
+    httpd = ThreadingHTTPServer(('', args.port), RequestHandler)
 
     def signal_handler(signum, frame):
         shutdown_event.set()
