@@ -133,7 +133,11 @@ def worker():
         request_queue.task_done()
 
 if __name__ == '__main__':
-    httpd = ThreadingHTTPServer(('', 80), RequestHandler)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=80)
+    args = parser.parse_args()
+
+    httpd = ThreadingHTTPServer(('', args.port), RequestHandler)
 
     def signal_handler(signum, frame):
         shutdown_event.set()
