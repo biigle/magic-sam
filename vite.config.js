@@ -13,18 +13,22 @@ export default defineConfig({
                 {
                     src: 'node_modules/onnxruntime-web/dist/*.wasm',
                     dest: 'assets',
+                    rename: { stripBase: true },
                 },
                 {
                     src: 'node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded*.mjs',
                     dest: 'assets',
+                    rename: { stripBase: true },
                 },
                 {
                     src: 'src/resources/assets/images/*',
                     dest: 'assets',
+                    rename: { stripBase: true },
                 },
                 {
                     src: 'src/resources/assets/models/*',
                     dest: 'assets',
+                    rename: { stripBase: true },
                 },
             ],
         }),
