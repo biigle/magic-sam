@@ -4,7 +4,7 @@
     "src": "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm"
   },
   "src/resources/assets/js/main.js": {
-    "file": "assets/main-Bsm_HlML.js",
+    "file": "assets/main-DhxRpg90.js",
     "name": "main",
     "src": "src/resources/assets/js/main.js",
     "isEntry": true,
