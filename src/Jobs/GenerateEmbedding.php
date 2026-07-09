@@ -131,46 +131,48 @@ class GenerateEmbedding
      */
     protected function generateEmbedding(Image $image): string
     {
-        return FileCache::getOnce($image, function ($file, $path) {
-            $buffer = $this->getImageBufferForPyworker($path);
-            $embedding = $this->sendPyworkerRequest($buffer);
+        // For tiled images with a bbox we only need a handful of Zoomify tiles. Load them
+        // directly instead of downloading the (potentially huge) original file via
+        // FileCache, which would otherwise dominate the run time.
+        $vipsImage = $this->tryGetVipsImageFromTiles();
 
-            return $embedding;
-        });
+        if ($vipsImage !== null) {
+            $buffer = $this->bufferFromVipsImage($vipsImage);
+        } else {
+            $buffer = FileCache::getOnce($image, function ($file, $path) {
+                $vipsImage = $this->getVipsImageFromFullImage($path);
+
+                return $this->bufferFromVipsImage($vipsImage);
+            });
+        }
+
+        return $this->sendPyworkerRequest($buffer);
     }
 
     /**
-     * Get the byte string of the resized image for the Python worker.
+     * Attempt to load the bbox area from Zoomify tiles.
      */
-    protected function getImageBufferForPyworker(string $path): string
+    protected function tryGetVipsImageFromTiles(): ?VipsImage
     {
+        if (!$this->image->tiled || !$this->bbox) {
+            return null;
+        }
+
         $inputSize = config('magic_sam.model_input_size');
 
-        if ($this->image->tiled && $this->bbox) {
-            $tileInfo = $this->prepareTileLoadingInfo($this->bbox, $inputSize);
+        $tileInfo = $this->prepareTileLoadingInfo($this->bbox, $inputSize);
 
-            if ($tileInfo['tile_count'] <= self::MAX_TILES_THRESHOLD) {
-                try {
-                    $image = $this->getVipsImageFromZoomifyTiles($tileInfo);
-                } catch (Exception $e) {
-                    Log::warning("Failed to load Zoomify tiles for image {$this->image->id}, falling back to full image: {$e->getMessage()}");
-                }
-            }
+        if ($tileInfo['tile_count'] > self::MAX_TILES_THRESHOLD) {
+            return null;
         }
 
-        $image = $image ?? $this->getVipsImageFromFullImage($path);
+        try {
+            return $this->getVipsImageFromZoomifyTiles($tileInfo);
+        } catch (Exception $e) {
+            Log::warning("Failed to load Zoomify tiles for image {$this->image->id}, falling back to full image: {$e->getMessage()}");
 
-        // Make sure the image is in RGB format before sending it to the pyworker.
-        $image = $image->colourspace('srgb');
-        if ($image->hasAlpha()) {
-            $image = $image->flatten();
+            return null;
         }
-
-        $factor = $inputSize / max($image->width, $image->height);
-        // Resize even if factor is >=1 to match the logic in MagicSamInteraction.js.
-        $image = $image->resize($factor);
-
-        return $image->writeToBuffer('.png');
     }
 
     /**
@@ -191,6 +193,26 @@ class GenerateEmbedding
         }
 
         return $image;
+    }
+
+    /**
+     * Get the byte string of the resized image for the Python worker.
+     */
+    protected function bufferFromVipsImage(VipsImage $image): string
+    {
+        $inputSize = config('magic_sam.model_input_size');
+
+        // Make sure the image is in RGB format before sending it to the pyworker.
+        $image = $image->colourspace('srgb');
+        if ($image->hasAlpha()) {
+            $image = $image->flatten();
+        }
+
+        $factor = $inputSize / max($image->width, $image->height);
+        // Resize even if factor is >=1 to match the logic in MagicSamInteraction.js.
+        $image = $image->resize($factor);
+
+        return $image->writeToBuffer('.png');
     }
 
     /**
