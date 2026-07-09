@@ -8,10 +8,12 @@ use Biigle\Modules\MagicSam\Events\EmbeddingFailed;
 use Biigle\Modules\MagicSam\Jobs\GenerateEmbedding;
 use Biigle\User;
 use Exception;
+use FileCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Jcupitt\Vips\Image as VipsImage;
 use TestCase;
 
 class GenerateEmbeddingTest extends TestCase
@@ -203,6 +205,32 @@ class GenerateEmbeddingTest extends TestCase
         });
     }
 
+    public function testHandleWithTilesSkipsFileCache()
+    {
+        Event::fake();
+        $disk = Storage::fake('test');
+        config(['magic_sam.embedding_storage_disk' => 'test']);
+
+        $image = Image::factory()->create([
+            'width' => 8192,
+            'height' => 8192,
+            'tiled' => true,
+        ]);
+        $user = User::factory()->create();
+        $bbox = ['x' => 0, 'y' => 0, 'width' => 4096, 'height' => 4096];
+
+        // The full source file is never touched on the tile path.
+        FileCache::shouldReceive('getOnce')->never();
+
+        $job = new GenerateEmbeddingStub($image, $user, $bbox);
+        $job->handle();
+
+        $this->assertTrue($job->pythonCalled);
+
+        $expectedFilename = "{$image->id}/0_0_4096_4096.npy";
+        $this->assertEquals('response', $disk->get($expectedFilename));
+    }
+
     public function testPrepareTileLoadingInfo()
     {
         $image = Image::factory()->create([
@@ -227,6 +255,29 @@ class GenerateEmbeddingTest extends TestCase
         $this->assertEquals(16, $info['tile_count']);
         $this->assertEquals(21, $info['tiles_before_level']);
         $this->assertEquals(8, $info['tiles_wide_at_level']);
+    }
+
+    public function testPrepareTileLoadingInfoNonPowerOfTwoImage()
+    {
+        // Verified against real libvips zoomify output (dzsave): for a 5000x3000
+        // image the real pyramid has 6 levels (0-5), i.e. max zoom level 5. This
+        // confirms getMaxZoomLevel()'s formula matches libvips for a non-power-of-two,
+        // non-square image, not just the power-of-two case in testPrepareTileLoadingInfo.
+        $image = Image::factory()->create([
+            'width' => 5000,
+            'height' => 3000,
+            'tiled' => true,
+        ]);
+        $user = User::factory()->create();
+
+        // A bbox spanning the full image with a matching model input size forces
+        // the highest (full-resolution) zoom level to be selected.
+        $bbox = ['x' => 0, 'y' => 0, 'width' => 5000, 'height' => 3000];
+        $job = new GenerateEmbeddingStub($image, $user, $bbox);
+        $info = $job->getTileLoadingInfo($bbox, 5000);
+
+        $this->assertEquals(5, $info['zoom_level']);
+        $this->assertEquals(20, $info['tiles_wide_at_level']);
     }
 
     public function testGetFilename()
@@ -255,7 +306,17 @@ class GenerateEmbeddingStub extends GenerateEmbedding
         return $this->prepareTileLoadingInfo($bbox, $modelInputSize);
     }
 
-    protected function getImageBufferForPyworker(string $path): string
+    protected function getVipsImageFromZoomifyTiles(array $tileInfo): VipsImage
+    {
+        return VipsImage::black(1, 1);
+    }
+
+    protected function getVipsImageFromFullImage(string $path): VipsImage
+    {
+        return VipsImage::black(1, 1);
+    }
+
+    protected function bufferFromVipsImage(VipsImage $image): string
     {
         return 'buffer';
     }
