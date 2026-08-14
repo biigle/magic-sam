@@ -9,6 +9,7 @@ use Biigle\User;
 use Exception;
 use FileCache;
 use Illuminate\Bus\Queueable;
+use Illuminate\Queue\Attributes\DeleteWhenMissingModels;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
 use Jcupitt\Vips\Image as VipsImage;
 
+#[DeleteWhenMissingModels]
 class GenerateEmbedding
 {
     use SerializesModels, Queueable;
@@ -52,13 +54,6 @@ class GenerateEmbedding
      * @var array|null
      */
     public $bbox;
-
-    /**
-     * Ignore this job if the image or user does not exist any more.
-     *
-     * @var bool
-     */
-    protected $deleteWhenMissingModels = true;
 
     /**
      * The number of times the job may be attempted.
