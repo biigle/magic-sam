@@ -4,6 +4,7 @@
     :active="isMagicSamming"
     :loading="isLoadingMagicSam"
     :class="magicSamButtonClass"
+    :disabled="!isMagicSamAllowed"
     :tooltip="magicSamTooltipText"
     tooltip-closable="magic-sam-detailed-mode"
     v-on:click="toggleMagicSam"

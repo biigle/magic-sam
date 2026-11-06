@@ -21,6 +21,10 @@
     <a href="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_3.jpg')}}"><img src="{{asset('vendor/magic-sam/assets/creating_annotations_magic_sam_3.jpg')}}" width="49%"></a>
 </p>
 
+<p>
+    Like the other polygon tools, magic SAM is disabled if an enforced <a href="{{route('manual-tutorials', ['projects', 'about'])}}#use-a-guideline">annotation guideline</a> does not allow polygons for the selected label.
+</p>
+
 <h5>Detailed Mode</h5>
 
 <p>
