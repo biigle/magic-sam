@@ -49,6 +49,9 @@ export default {
         isLoadingMagicSam() {
             return this.magicSamloadingState !== null;
         },
+        isMagicSamAllowed() {
+            return this.isShapeAllowed('Polygon');
+        },
         isLoadingDetailedMode() {
             return this.magicSamloadingState === 'loading-detailed';
         },
@@ -59,6 +62,10 @@ export default {
             };
         },
         magicSamButtonTitle() {
+            if (!this.isMagicSamAllowed) {
+                return this.getShapeToolTitle('Polygon', '');
+            }
+
             if (this.magicSamloadingTakesLong) {
                 return 'Preparing the magic for this image';
             }
@@ -74,7 +81,7 @@ export default {
             return 'Draw a polygon using the magic SAM tool 𝗭';
         },
         magicSamTooltipText() {
-            if (!this.detailedModeActive && !this.isLoadingDetailedMode) {
+            if (this.isMagicSamAllowed && !this.detailedModeActive && !this.isLoadingDetailedMode) {
                 return 'Press 𝗭 to toggle detailed mode';
             }
 
@@ -99,7 +106,9 @@ export default {
         toggleMagicSam() {
             // Activate Magic SAM.
             if (!this.isMagicSamming) {
-                if (!this.canAdd) return;
+                // The button is disabled for disallowed shapes but the keyboard
+                // shortcut still calls this method.
+                if (!this.canAdd || !this.isMagicSamAllowed) return;
 
                 if (!magicSamInteraction) {
                     this.initMagicSamInteraction();
@@ -406,6 +415,17 @@ export default {
                     this.handleSamEmbeddingRequestSuccess,
                     this.handleSamEmbeddingRequestFailure
                 );
+        },
+        // The annotation canvas only resets disallowed tools of its own interaction
+        // modes.
+        isMagicSamAllowed(allowed) {
+            if (allowed || !this.isMagicSamming) {
+                return;
+            }
+
+            this.resetInteractionMode();
+            // The canvas skips the automatic tool switch while Magic SAM is active.
+            this.maybeSwitchToAutomaticTool();
         },
         canAdd: {
             handler(canAdd) {
